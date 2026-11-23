@@ -1,6 +1,7 @@
 import re,sys,json
 s=open(sys.argv[1],encoding='utf-8').read()
 js='\n'.join(re.findall(r'<script>(.*?)</script>',s,re.S))
+js=re.sub(r'/\*CLIPS\*/.*?/\*CLIPS_END\*/','{}',js,flags=re.S)  # skip embedded manifest
 # tokenize JS string literals; template literals split at ${...}
 pieces=[];i=0;n=len(js)
 def tmpl(i):
