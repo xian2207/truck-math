@@ -1192,36 +1192,71 @@ $('#hudHome').onclick=()=>{show('home');renderHome()};
 window.addEventListener('resize',()=>{if(!$('#play').hidden&&game){layoutRoad();fitStage($('#pStage'))}});
 $('#buddy').onclick=()=>{const m=$('#buddy').dataset.mood;say(m==='happy'?'哈哈，太好了！太阳出来了，小花也开了！':m==='sad'?'好臭好臭！地上有一坨臭臭！快帮我算对，把它收走！':'我是环卫工乐乐叔叔！你答对了，我就开心；答错了，苍蝇就来找我啦！')};
 /* ---- calm background music: plays on the welcome screen and after 5 min idle; any tap stops it ---- */
-const BGM={on:false,master:null,timer:null,next:0,ci:0,last:-1};
+const BGM={on:false,master:null,timer:null,next:0,bar:0};
 const IDLE_MS=5*60*1000;let lastActive=Date.now();
 const mf=m=>440*Math.pow(2,(m-69)/12);
-const BGM_CHORDS=[[48,52,55,59],[45,48,52,55],[41,45,48,52],[43,47,50,55]];
-const BGM_BASS=[36,33,29,31];
-const BGM_MEL=[72,74,76,79,81,84];
-function bgmVerb(a){const len=a.sampleRate*3,b=a.createBuffer(2,len,a.sampleRate);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3)}const v=a.createConvolver();v.buffer=b;return v}
-function bgmNote(a,f,t,dur,peak,type,att,dest){const o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(peak,t+att);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(dest);o.start(t);o.stop(t+dur+.05)}
+/* Original cheerful loop "垃圾车出发啦": C major, 112 BPM, 16 bars. Melody = [midi,eighths] (0 = rest). */
+const BGM_E=60/112/2;
+const BGM_CH=['C','C','F','G','C','Am','FG','C','F','C','F','G','Am','F','G','C'];
+const CHORD={C:[48,52,55],F:[53,57,60],G:[55,59,62],Am:[57,60,64]};
+const ROOT={C:[36,43],F:[41,48],G:[43,50],Am:[45,52]};
+const BGM_MEL=[
+ [[76,1],[79,1],[84,2],[79,1],[76,1],[79,2]],
+ [[72,1],[74,1],[76,1],[77,1],[79,2],[0,2]],
+ [[81,1],[81,1],[79,1],[77,1],[81,2],[84,2]],
+ [[83,1],[81,1],[79,1],[77,1],[74,2],[0,2]],
+ [[76,1],[79,1],[84,2],[79,1],[76,1],[79,2]],
+ [[81,1],[79,1],[76,1],[72,1],[76,2],[0,2]],
+ [[77,2],[81,2],[79,2],[83,2]],
+ [[84,3],[79,1],[84,2],[0,2]],
+ [[84,1],[81,1],[77,1],[81,1],[84,2],[81,2]],
+ [[79,1],[76,1],[72,1],[76,1],[79,4]],
+ [[77,1],[79,1],[81,1],[84,1],[86,2],[84,2]],
+ [[83,1],[79,1],[74,1],[79,1],[83,2],[0,2]],
+ [[84,1],[83,1],[81,1],[76,1],[81,2],[84,2]],
+ [[81,1],[79,1],[77,1],[72,1],[77,2],[81,2]],
+ [[79,1],[79,1],[81,1],[83,1],[86,2],[83,2]],
+ [[84,2],[79,1],[76,1],[72,2],[0,2]]
+];
+const BGM_FX={3:[['honk',6]],7:[['honk',6],['honk',7]],11:[['lid',6],['lid',7]],15:[['honk',6],['honk',7]]};
+let bgmNoise=null;
+function noiseBuf(a){if(!bgmNoise||bgmNoise.sampleRate!==a.sampleRate){const n=a.sampleRate*.5,b=a.createBuffer(1,n,a.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;bgmNoise=b}return bgmNoise}
+function env(a,t,peak,att,dur,dest){const g=a.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(peak,t+att);g.gain.exponentialRampToValueAtTime(.0001,t+dur);g.connect(dest);return g}
+function osc(a,type,f,t,dur,g){const o=a.createOscillator();o.type=type;o.frequency.setValueAtTime(f,t);o.connect(g);o.start(t);o.stop(t+dur+.05);return o}
+function marimba(a,m,t,len,out){const f=mf(m),d=Math.min(.55,len+.25);osc(a,'sine',f,t,d,env(a,t,.16,.004,d,out));osc(a,'sine',f*3.98,t,.09,env(a,t,.035,.002,.09,out));osc(a,'triangle',f*2,t,.5,env(a,t,.025,.003,.5,out))}
+function bassNote(a,m,t,out){osc(a,'triangle',mf(m),t,.3,env(a,t,.22,.01,.3,out))}
+function strum(a,ch,t,out){ch.forEach((m,i)=>osc(a,'triangle',mf(m+12),t+i*.012,.14,env(a,t+i*.012,.03,.004,.14,out)))}
+function kick(a,t,out){const g=env(a,t,.5,.003,.18,out),o=osc(a,'sine',130,t,.18,g);o.frequency.exponentialRampToValueAtTime(42,t+.15)}
+function noise(a,t,dur,peak,type,freq,out){const s=a.createBufferSource();s.buffer=noiseBuf(a);const f=a.createBiquadFilter();f.type=type;f.frequency.value=freq;s.connect(f);f.connect(env(a,t,peak,.002,dur,out));s.start(t);s.stop(t+dur+.02)}
+function honk(a,t,out){const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1800;lp.connect(out);[440,554].forEach(f=>{const g=a.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.06,t+.02);g.gain.setValueAtTime(.06,t+.16);g.gain.linearRampToValueAtTime(0,t+.2);g.connect(lp);osc(a,'square',f,t,.22,g)})}
+function lid(a,t,out){osc(a,'sine',150,t,.25,env(a,t,.35,.003,.25,out));osc(a,'triangle',523,t,.35,env(a,t,.05,.002,.35,out));osc(a,'triangle',781,t,.3,env(a,t,.03,.002,.3,out))}
 function bgmSchedule(){
-  const a=ac;if(!BGM.on||!a)return;
-  const beat=60/66,bar=beat*4;
+  const a=ac;if(!BGM.on||!a)return;const E=BGM_E,out=BGM.mix;
   while(BGM.next<a.currentTime+1.2){
-    const t=BGM.next,k=BGM.ci%4;
-    BGM_CHORDS[k].forEach(m=>{bgmNote(a,mf(m),t,bar+2.2,.035,'sine',1.6,BGM.pad);bgmNote(a,mf(m)*1.003,t,bar+2.2,.018,'triangle',1.8,BGM.pad)});
-    bgmNote(a,mf(BGM_BASS[k]),t,bar+.8,.06,'sine',.8,BGM.pad);
-    for(let e=0;e<8;e++){if(Math.random()<.32){let m;do{m=BGM_MEL[Math.floor(Math.random()*BGM_MEL.length)]}while(m===BGM.last);BGM.last=m;
-      const tt=t+e*beat/2+Math.random()*.03;bgmNote(a,mf(m),tt,2.4,.05,'sine',.012,BGM.bell);bgmNote(a,mf(m)*2,tt,1.2,.012,'sine',.01,BGM.bell)}}
-    BGM.next+=bar;BGM.ci++;
+    const t0=BGM.next,k=BGM.bar%16,chs=BGM_CH[k];
+    const chAt=e=>chs==='FG'?(e<4?'F':'G'):chs;
+    for(let e=0;e<8;e++){const t=t0+e*E,c=chAt(e);
+      if(e%2===0)bassNote(a,ROOT[c][(e/2)%2],t,out);
+      else strum(a,CHORD[c],t,out);
+      if(e===0||e===4)kick(a,t,out);
+      if(e===2||e===6)noise(a,t,.12,.12,'bandpass',1800,out);
+      noise(a,t,.04,e%2?.035:.02,'highpass',7000,out);
+    }
+    let e=0;for(const [m,l] of BGM_MEL[k]){if(m)marimba(a,m,t0+e*E,l*E,BGM.lead);e+=l}
+    (BGM_FX[k]||[]).forEach(([fx,at])=>(fx==='honk'?honk:lid)(a,t0+at*E,out));
+    BGM.next+=8*E;BGM.bar++;
   }
 }
 function bgmStart(){
   if(BGM.on||!S.sound||document.hidden)return;const a=getAC();if(!a)return;
-  BGM.on=true;const m=a.createGain();m.gain.setValueAtTime(0,a.currentTime);m.gain.linearRampToValueAtTime(1.5,a.currentTime+3);m.connect(a.destination);
-  const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1600;lp.connect(m);
-  const verb=bgmVerb(a),wet=a.createGain();wet.gain.value=.55;verb.connect(wet);wet.connect(m);
-  const pad=a.createGain();pad.connect(lp);pad.connect(verb);
-  const bell=a.createGain();bell.gain.value=.8;bell.connect(m);bell.connect(verb);
-  Object.assign(BGM,{master:m,pad,bell,next:a.currentTime+.1,ci:0});
-  bgmSchedule();BGM.timer=setInterval(bgmSchedule,400);
+  BGM.on=true;const m=a.createGain();m.gain.setValueAtTime(0,a.currentTime);m.gain.linearRampToValueAtTime(.8,a.currentTime+1.5);m.connect(a.destination);
+  const verb=bgmVerb(a),wet=a.createGain();wet.gain.value=.18;verb.connect(wet);wet.connect(m);
+  const mix=a.createGain();mix.connect(m);
+  const lead=a.createGain();lead.connect(m);lead.connect(verb);
+  Object.assign(BGM,{master:m,mix,lead,next:a.currentTime+.1,bar:0});
+  bgmSchedule();BGM.timer=setInterval(bgmSchedule,300);
 }
+function bgmVerb(a){const len=Math.floor(a.sampleRate*1.2),b=a.createBuffer(2,len,a.sampleRate);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,4)}const v=a.createConvolver();v.buffer=b;return v}
 function bgmStop(){
   if(!BGM.on)return;BGM.on=false;clearInterval(BGM.timer);
   const a=ac,m=BGM.master;if(!a||!m)return;
