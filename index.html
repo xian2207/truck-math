@@ -377,8 +377,28 @@ body.playing .wrap{max-width:none}
   .hero-truck{animation:none;left:30%}
   *{animation-duration:.01s!important;transition-duration:.01s!important}
 }
+
+/* welcome cover (unlocks audio + starts calm music) */
+.cover{position:fixed;inset:0;z-index:200;display:grid;place-items:center;align-content:center;gap:1.2rem;background:linear-gradient(180deg,#BFE6FF 0%,#E3F4FF 60%,#D3F9D8 100%);text-align:center;padding:1rem;transition:opacity .45s}
+.cover.out{opacity:0;pointer-events:none}
+.cover h2{margin:0;font-family:var(--font-c,inherit);font-size:clamp(2rem,7vmin,3.6rem);color:var(--ink)}
+.cover .go{width:clamp(7rem,26vmin,11rem);aspect-ratio:1;border-radius:50%;border:none;background:var(--truck);box-shadow:0 .5rem 0 var(--truck-d),0 0 0 .9rem rgba(47,158,68,.18);display:grid;place-items:center;cursor:pointer;animation:goPulse 1.8s ease-in-out infinite}
+.cover .go:active{transform:translateY(.3rem);box-shadow:0 .2rem 0 var(--truck-d)}
+.cover .go svg{width:45%;height:45%;margin-left:8%}
+.cover p{margin:0;font-family:var(--font-c,inherit);font-size:clamp(1.1rem,3.6vmin,1.6rem);color:var(--muted)}
+.cover .notes{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.cover .notes i{position:absolute;bottom:-2rem;font-style:normal;font-size:1.8rem;color:#748FFC;opacity:.0;animation:noteUp 7s linear infinite}
+@keyframes goPulse{50%{box-shadow:0 .5rem 0 var(--truck-d),0 0 0 1.5rem rgba(47,158,68,.08)}}
+@keyframes noteUp{0%{transform:translateY(0) rotate(-10deg);opacity:0}15%{opacity:.7}100%{transform:translateY(-110vh) rotate(15deg);opacity:0}}
+@media (prefers-reduced-motion:reduce){.cover .go,.cover .notes i{animation:none}}
 </style>
 
+<div class="cover" id="cover">
+  <div class="notes" aria-hidden="true"><i style="left:12%;animation-delay:0s">♪</i><i style="left:30%;animation-delay:2.4s">♫</i><i style="left:68%;animation-delay:1.2s">♪</i><i style="left:85%;animation-delay:4s">♫</i><i style="left:50%;animation-delay:5.2s">♪</i></div>
+  <h2>垃圾车数学</h2>
+  <button class="go" id="goBtn" aria-label="开始"><svg viewBox="0 0 24 24"><path d="M6 3.5v17l14-8.5z" fill="#fff" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></button>
+  <p>点一下，开车出发！</p>
+</div>
 <div class="wrap">
   <header class="top">
     <button class="ib" id="homeBtn" aria-label="回到首页" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></button>
@@ -841,7 +861,7 @@ applyZoom();
 $('#zoomIn').onclick=()=>{S.zoom=Math.min(1.8,+(S.zoom+.1).toFixed(2));applyZoom();LS.set('zoom',S.zoom)};
 $('#zoomOut').onclick=()=>{S.zoom=Math.max(.8,+(S.zoom-.1).toFixed(2));applyZoom();LS.set('zoom',S.zoom)};
 function paintSound(){$('#soundBtn').classList.toggle('off',!S.sound)}paintSound();
-$('#soundBtn').onclick=()=>{S.sound=!S.sound;LS.set('sound',S.sound);paintSound();if(!S.sound)hush();else say('声音打开啦')};
+$('#soundBtn').onclick=()=>{S.sound=!S.sound;LS.set('sound',S.sound);paintSound();if(!S.sound){hush();bgmStop()}else say('声音打开啦')};
 $('#fsBtn').onclick=()=>{try{if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});else document.documentElement.requestFullscreen().catch(()=>{})}catch(e){}};
 $('#homeBtn').onclick=()=>{show('home');renderHome()};
 
@@ -1171,6 +1191,48 @@ $('#tram').onclick=()=>{tone(1568,.12,'triangle',.15);setTimeout(()=>tone(1568,.
 $('#hudHome').onclick=()=>{show('home');renderHome()};
 window.addEventListener('resize',()=>{if(!$('#play').hidden&&game){layoutRoad();fitStage($('#pStage'))}});
 $('#buddy').onclick=()=>{const m=$('#buddy').dataset.mood;say(m==='happy'?'哈哈，太好了！太阳出来了，小花也开了！':m==='sad'?'好臭好臭！地上有一坨臭臭！快帮我算对，把它收走！':'我是环卫工乐乐叔叔！你答对了，我就开心；答错了，苍蝇就来找我啦！')};
+/* ---- calm background music: plays on the welcome screen and after 5 min idle; any tap stops it ---- */
+const BGM={on:false,master:null,timer:null,next:0,ci:0,last:-1};
+const IDLE_MS=5*60*1000;let lastActive=Date.now();
+const mf=m=>440*Math.pow(2,(m-69)/12);
+const BGM_CHORDS=[[48,52,55,59],[45,48,52,55],[41,45,48,52],[43,47,50,55]];
+const BGM_BASS=[36,33,29,31];
+const BGM_MEL=[72,74,76,79,81,84];
+function bgmVerb(a){const len=a.sampleRate*3,b=a.createBuffer(2,len,a.sampleRate);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3)}const v=a.createConvolver();v.buffer=b;return v}
+function bgmNote(a,f,t,dur,peak,type,att,dest){const o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(peak,t+att);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(dest);o.start(t);o.stop(t+dur+.05)}
+function bgmSchedule(){
+  const a=ac;if(!BGM.on||!a)return;
+  const beat=60/66,bar=beat*4;
+  while(BGM.next<a.currentTime+1.2){
+    const t=BGM.next,k=BGM.ci%4;
+    BGM_CHORDS[k].forEach(m=>{bgmNote(a,mf(m),t,bar+2.2,.035,'sine',1.6,BGM.pad);bgmNote(a,mf(m)*1.003,t,bar+2.2,.018,'triangle',1.8,BGM.pad)});
+    bgmNote(a,mf(BGM_BASS[k]),t,bar+.8,.06,'sine',.8,BGM.pad);
+    for(let e=0;e<8;e++){if(Math.random()<.32){let m;do{m=BGM_MEL[Math.floor(Math.random()*BGM_MEL.length)]}while(m===BGM.last);BGM.last=m;
+      const tt=t+e*beat/2+Math.random()*.03;bgmNote(a,mf(m),tt,2.4,.05,'sine',.012,BGM.bell);bgmNote(a,mf(m)*2,tt,1.2,.012,'sine',.01,BGM.bell)}}
+    BGM.next+=bar;BGM.ci++;
+  }
+}
+function bgmStart(){
+  if(BGM.on||!S.sound||document.hidden)return;const a=getAC();if(!a)return;
+  BGM.on=true;const m=a.createGain();m.gain.setValueAtTime(0,a.currentTime);m.gain.linearRampToValueAtTime(1.5,a.currentTime+3);m.connect(a.destination);
+  const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1600;lp.connect(m);
+  const verb=bgmVerb(a),wet=a.createGain();wet.gain.value=.55;verb.connect(wet);wet.connect(m);
+  const pad=a.createGain();pad.connect(lp);pad.connect(verb);
+  const bell=a.createGain();bell.gain.value=.8;bell.connect(m);bell.connect(verb);
+  Object.assign(BGM,{master:m,pad,bell,next:a.currentTime+.1,ci:0});
+  bgmSchedule();BGM.timer=setInterval(bgmSchedule,400);
+}
+function bgmStop(){
+  if(!BGM.on)return;BGM.on=false;clearInterval(BGM.timer);
+  const a=ac,m=BGM.master;if(!a||!m)return;
+  try{m.gain.cancelScheduledValues(a.currentTime);m.gain.setValueAtTime(m.gain.value,a.currentTime);m.gain.linearRampToValueAtTime(0,a.currentTime+.6)}catch(e){}
+  setTimeout(()=>{try{m.disconnect()}catch(e){}},900);
+}
+document.addEventListener('pointerdown',e=>{lastActive=Date.now();if(!e.target.closest('#cover'))bgmStop()},{capture:true,passive:true});
+document.addEventListener('keydown',()=>{lastActive=Date.now();bgmStop()},{capture:true});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)bgmStop();else lastActive=Date.now()});
+setInterval(()=>{if(!BGM.on&&$('#cover').classList.contains('out')&&Date.now()-lastActive>IDLE_MS)bgmStart()},5000);
+$('#goBtn').onclick=()=>{const c=$('#cover');c.classList.add('out');setTimeout(()=>{c.hidden=true},500);lastActive=Date.now();bgmStart()};
 renderHome();
 })();
 </script>
