@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>垃圾车数学</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=ZCOOL+KuaiLe&display=swap">
+<style>
+/* Layout: one-screen kid app. Sticky top bar; each screen = scene stage (trucks, bins, papers) above a giant equation and bin-shaped answer buttons. Single bright daytime-street look on purpose. */
+:root{
+  color-scheme:light;
+  --sky:#E3F4FF; --ink:#1B2A41; --muted:#56657C; --card:#FFFFFF; --edge:#C7DDEE;
+  --road:#3A4150; --line:#FFD43B;
+  --truck:#2F9E44; --truck-d:#1F6E30;
+  --recycle:#1C7ED6; --harm:#E03131; --kitchen:#2F9E44; --other:#5C6B7A;
+  --orange:#F76707; --sun:#FFD43B;
+  --plus:#2F9E44; --minus:#E03131; --eqc:#1C7ED6;
+  --font-d:"ZCOOL KuaiLe","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --font-n:"Fredoka","Arial Rounded MT Bold","Helvetica Neue",Arial,sans-serif;
+  --font-b:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --zoom:1.1;
+  font-size:calc(16px * var(--zoom));
+}
+body{background:var(--sky);color:var(--ink);font-family:var(--font-b);font-size:1rem;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 2rem;
+  -webkit-tap-highlight-color:transparent;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--sky)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:.22rem solid var(--orange);outline-offset:.15rem}
+.wrap{max-width:60rem;margin:0 auto}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;gap:.45rem;padding-block:.55rem;background:var(--sky)}
+.brand{font-family:var(--font-d);font-size:1.45rem;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ib{flex:none;width:2.8rem;height:2.8rem;border-radius:.9rem;background:var(--card);border:.13rem solid var(--edge);display:grid;place-items:center;padding:0;font-family:var(--font-n);font-weight:700;font-size:1.05rem}
+.ib svg{width:1.5rem;height:1.5rem}
+.ib.off{opacity:.45}
+
+.screen{display:flex;flex-direction:column;gap:1rem}
+
+/* home hero street */
+.hero{position:relative;height:15.5rem;border-radius:1.4rem;overflow:hidden;background:linear-gradient(#BFE6FF,#E8F6FF 60%);border:.15rem solid var(--edge)}
+.hero h1{position:absolute;left:1rem;top:.7rem;margin:0;font-family:var(--font-d);font-weight:400;font-size:2.4rem;line-height:1.1;text-wrap:balance}
+.hero h1 small{display:block;font-size:1rem;color:var(--muted);font-family:var(--font-b)}
+.sidewalk{position:absolute;left:0;right:0;bottom:5rem;height:1.2rem;background:#D9DEE5;border-top:.25rem solid #B9C0CA}
+.road{position:absolute;left:0;right:0;bottom:0;height:5rem;background:var(--road)}
+.road::after{content:"";position:absolute;left:0;right:0;top:50%;height:.3rem;background:repeating-linear-gradient(90deg,var(--line) 0 2rem,transparent 2rem 3.5rem)}
+.minibins{position:absolute;bottom:6.1rem;left:1rem;display:flex;gap:.55rem;align-items:flex-end}
+.mbin{border:0;padding:0;background:none;display:flex;flex-direction:column;align-items:center;gap:.15rem}
+.mbin i{display:block;width:2.4rem;height:.5rem;border-radius:.25rem;background:var(--c);filter:brightness(.8)}
+.mbin b{display:block;width:2.1rem;height:2.6rem;border-radius:.15rem .15rem .5rem .5rem;background:var(--c);box-shadow:inset 0 -.3rem 0 rgba(0,0,0,.18)}
+.mbin span{font-size:.65rem;color:var(--ink);white-space:nowrap}
+.hero-light{position:absolute;right:1.2rem;bottom:5.6rem;display:flex;flex-direction:column;align-items:center;border:0;background:none;padding:0}
+.hero-light .pole{width:.4rem;height:2.6rem;background:#59606C}
+.hero-truck{position:absolute;bottom:.5rem;left:0;animation:drive 11s linear infinite;border:0;background:none;padding:0}
+.hero-truck .truck{--bag:1.3rem}
+@keyframes drive{from{transform:translateX(-18rem)}to{transform:translateX(62rem)}}
+.hero.stop .hero-truck{animation-play-state:paused}
+
+/* traffic light */
+.tl{display:flex;gap:.25rem;background:#20242B;border-radius:.7rem;padding:.3rem;flex:none}
+.tl.v{flex-direction:column}
+.lamp{width:1.35rem;height:1.35rem;border-radius:50%;background:#3E444E;transition:background .2s,box-shadow .2s}
+.tl[data-on=red] .lr{background:#FF3B30;box-shadow:0 0 .8rem #FF3B30}
+.tl[data-on=yellow] .ly{background:#FFC300;box-shadow:0 0 .8rem #FFC300}
+.tl[data-on=green] .lg{background:#34D058;box-shadow:0 0 .8rem #34D058}
+
+/* home cards */
+.homecards{display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:1rem}
+.learncard{display:flex;align-items:center;gap:1rem;width:100%;border:0;border-radius:1.3rem;background:var(--sun);padding:1rem 1.2rem;text-align:left;box-shadow:inset 0 -.4rem 0 rgba(0,0,0,.12);min-width:0}
+.learncard.gar{background:#D3F9D8}
+.learncard > svg{flex:none;width:5rem;height:auto}
+.learncard .t{font-family:var(--font-d);font-size:2rem;line-height:1.1}
+.learncard .s{font-size:.95rem;color:#4A4A30}
+.statrow{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.3rem}
+.stat{display:inline-flex;align-items:center;gap:.25rem;background:#fff;border-radius:.8rem;padding:.15rem .6rem;font-family:var(--font-n);font-weight:700;font-size:1.1rem;font-variant-numeric:tabular-nums}
+.stat svg{width:1.1rem;height:1.1rem;fill:#FAB005}
+.sec{font-family:var(--font-d);font-size:1.5rem;margin:.4rem 0 -.2rem}
+.levels{display:grid;grid-template-columns:repeat(auto-fill,minmax(9.5rem,1fr));gap:1.4rem 1rem;padding-top:.7rem}
+.lvl{position:relative;border:0;border-radius:.4rem .4rem 1.3rem 1.3rem;background:var(--c);color:#fff;padding:1rem .6rem .8rem;display:flex;flex-direction:column;align-items:center;gap:.2rem;box-shadow:inset 0 -.5rem 0 rgba(0,0,0,.18)}
+.lvl::before{content:"";position:absolute;left:-.4rem;right:-.4rem;top:-.75rem;height:.85rem;border-radius:.45rem .45rem .2rem .2rem;background:var(--c);filter:brightness(.78)}
+.lvl .big{font-family:var(--font-n);font-weight:700;font-size:3.2rem;line-height:1;text-shadow:0 .15rem 0 rgba(0,0,0,.2)}
+.lvl .nm{font-family:var(--font-d);font-size:1.3rem}
+.lvl .sb{font-size:.8rem;opacity:.9}
+.stars{display:flex;gap:.15rem}
+.stars svg{width:1.3rem;height:1.3rem;fill:rgba(255,255,255,.35)}
+.stars svg.on{fill:var(--sun)}
+.tips{background:var(--card);border-radius:1rem;border:.13rem solid var(--edge);padding:.9rem 1.1rem;font-size:.92rem;line-height:1.7;color:var(--muted)}
+.tips h3{margin:0 0 .3rem;font-size:1rem;color:var(--ink)}
+.tips ul{margin:0;padding-left:1.2rem}
+
+/* garage */
+.ghead{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+.ghead h2{margin:0;font-family:var(--font-d);font-weight:400;font-size:2rem}
+.cars{display:grid;grid-template-columns:repeat(auto-fill,minmax(15rem,1fr));gap:1rem}
+.car{position:relative;display:flex;flex-direction:column;align-items:center;gap:.4rem;background:var(--card);border:.18rem solid var(--edge);border-radius:1.2rem;padding:1rem .6rem .7rem;--bag:1.2rem;min-width:0}
+.car .nm{font-family:var(--font-d);font-size:1.3rem}
+.car.sel{border-color:var(--plus);box-shadow:0 0 0 .25rem #B2F2BB}
+.car .tag{position:absolute;top:.5rem;right:.6rem;font-size:.8rem;background:var(--plus);color:#fff;border-radius:.6rem;padding:.1rem .5rem}
+.car.locked .truck{filter:grayscale(1) brightness(.45);opacity:.75}
+.car .lock{display:flex;align-items:center;gap:.25rem;font-family:var(--font-n);font-weight:700;font-size:1.3rem}
+.car .lock svg{width:1.3rem;height:1.3rem;fill:#FAB005}
+
+/* learn */
+.tabs{display:flex;gap:.5rem;overflow-x:auto;padding-block:.2rem;scrollbar-width:none}
+.tab{flex:none;display:flex;align-items:center;gap:.4rem;font-family:var(--font-d);font-size:1.15rem;padding:.45rem .9rem;border-radius:1rem;border:.13rem solid var(--edge);background:var(--card)}
+.tab b{font-family:var(--font-n);font-size:1.5rem;line-height:1}
+.tab[aria-selected=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.ltop{display:flex;flex-direction:column;gap:.8rem}
+.symcard{display:flex;align-items:center;gap:1rem;background:var(--card);border-radius:1.2rem;padding:.8rem 1rem;border:.13rem solid var(--edge)}
+.bigsym{flex:none;width:5.2rem;height:5.2rem;display:grid;place-items:center;border-radius:1rem;color:#fff;font-family:var(--font-n);font-weight:700;font-size:4rem;line-height:1}
+.symcard .txt{min-width:0}
+.symcard .nm{font-family:var(--font-d);font-size:1.5rem}
+.symcard p{margin:.2rem 0 0;color:var(--muted);line-height:1.6;font-size:.95rem}
+.chips{display:flex;flex-wrap:wrap;gap:.55rem;justify-content:center}
+.chip{font-family:var(--font-n);font-weight:700;font-size:1.55rem;padding:.35rem .9rem;border-radius:.9rem;background:var(--card);border:.13rem solid var(--edge)}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.digits{display:grid;grid-template-columns:repeat(auto-fill,minmax(3.4rem,1fr));gap:.5rem}
+.digits .chip{font-size:2rem;padding:.3rem 0}
+
+/* stage */
+.stage{--bag:2rem;min-height:9rem;display:flex;align-items:flex-end;justify-content:center;background:var(--card);border-radius:1.3rem;border:.13rem solid var(--edge);padding:1rem .6rem .8rem;position:relative}
+.stage.small{--bag:1.45rem}
+.stage.tiny{--bag:1.2rem}
+.scene{display:flex;align-items:flex-end;justify-content:center;gap:1rem 1.4rem;flex-wrap:wrap;width:100%}
+.unit{display:flex;flex-direction:column;align-items:center;gap:.35rem;min-width:0}
+.badge{font-family:var(--font-n);font-weight:700;font-size:2.4rem;line-height:1;min-width:3.4rem;text-align:center;padding:.2rem .7rem;background:#F3F9FF;border:.18rem solid var(--edge);border-radius:1rem;font-variant-numeric:tabular-nums}
+.ulabel{font-size:.8rem;color:var(--muted)}
+.bigeq{font-family:var(--font-n);font-weight:700;font-size:4rem;color:#fff;background:var(--eqc);border-radius:1rem;width:5rem;text-align:center;align-self:center}
+.bigdigit{font-family:var(--font-n);font-weight:700;font-size:8rem;line-height:1;color:var(--ink);align-self:center;min-width:1em;text-align:center}
+
+.load{display:grid;grid-template-columns:repeat(var(--cols),var(--bag));gap:.22rem;justify-content:center;align-content:end}
+.load:empty{min-height:var(--bag);min-width:calc(var(--bag)*2)}
+.bag{width:var(--bag);height:calc(var(--bag)*1.1)}
+.bag svg{display:block;width:100%;height:100%}
+.bag.gone{opacity:.18;filter:grayscale(1)}
+.paper{width:var(--bag);height:calc(var(--bag)*.8);box-sizing:border-box;border:2px solid rgba(27,42,65,.35);border-radius:.18rem;transform:rotate(var(--r));background-image:repeating-linear-gradient(transparent 0 .28rem,rgba(27,42,65,.18) .28rem .36rem)}
+.pop{animation:pop .3s ease}
+@keyframes pop{50%{transform:scale(1.3)}}
+.pulse{animation:pulse .9s ease}
+@keyframes pulse{30%{transform:scale(1.08);filter:drop-shadow(0 0 .5rem #FFC300)}}
+.flying{position:fixed;z-index:60;pointer-events:none;margin:0}
+
+.truck{position:relative;display:flex;align-items:flex-end;padding-bottom:1rem}
+.tbox{background:var(--tbg,var(--truck));border:.22rem solid var(--td,var(--truck-d));border-radius:.7rem .5rem .3rem .3rem;padding:.45rem;min-width:6rem;min-height:4.2rem;display:flex;align-items:flex-end;justify-content:center;box-shadow:inset 0 .4rem 0 rgba(255,255,255,.22)}
+.cab{width:4rem;flex:none;margin-left:-.15rem}
+.cab svg{display:block;width:100%}
+.wheel{position:absolute;bottom:0;width:1.9rem;height:1.9rem;border-radius:50%;background:#262B33;border:.38rem solid #555D6B;box-sizing:border-box}
+.wheel.w1{left:.8rem}.wheel.w2{right:4.6rem}.wheel.w3{right:.9rem}
+
+.bin{position:relative;display:flex;flex-direction:column;align-items:center;padding-bottom:.55rem;transform-origin:90% 100%;transition:transform .45s cubic-bezier(.3,1.3,.6,1)}
+.bin .lid{align-self:stretch;margin:0 -.3rem .15rem;height:.85rem;background:var(--c);filter:brightness(.78);border-radius:.4rem .4rem .2rem .2rem}
+.bin .bbody{background:var(--c);border-radius:.2rem .2rem .8rem .8rem;padding:.5rem .45rem .65rem;min-width:4.6rem;min-height:3.8rem;display:flex;align-items:flex-end;justify-content:center;box-shadow:inset 0 -.35rem 0 rgba(0,0,0,.15)}
+.bin .bw{position:absolute;bottom:0;width:1rem;height:1rem;border-radius:50%;background:#262B33}
+.bin .b1{left:.5rem}.bin .b2{right:.5rem}
+.bin.tip{transform:rotate(32deg) translate(.6rem,-.8rem)}
+
+.ground{position:relative;background:#D2D7DF;border-radius:.8rem .8rem .3rem .3rem;border-bottom:.35rem solid #8A929E;padding:.7rem .6rem;min-width:5.5rem;min-height:3.6rem;display:flex;align-items:flex-end;justify-content:center;transition:background .5s}
+.ground .shine{position:absolute;inset:0;display:none;place-items:center}
+.ground .shine svg{width:80%;max-width:7rem;animation:twinkle 1s ease-in-out infinite alternate}
+.ground.clean{background:#E6FCF5;border-bottom-color:#63E6BE}
+.ground.clean .shine{display:grid}
+@keyframes twinkle{from{transform:scale(.85);opacity:.7}to{transform:scale(1.1);opacity:1}}
+.sweeper{position:relative;width:9rem}
+.sweeper svg{display:block;width:100%}
+.sweeper .nozzle{position:absolute;left:1%;bottom:8%;width:12%;height:14%}
+.sweeper .tank{--bag:.55rem;position:absolute;left:23%;top:23%;width:46%;height:48%;box-sizing:border-box;padding:.1rem;border-radius:.35rem;background:rgba(208,235,255,.92);border:.12rem solid #C2410C;display:flex;flex-wrap:wrap-reverse;align-content:flex-start;justify-content:center;gap:.06rem;overflow:hidden}
+.sweeper .tank .paper{border-width:1px;background-image:none}
+.sweeper.sucking svg{animation:shake .14s linear infinite}
+@keyframes shake{50%{transform:translate(.08rem,-.06rem)}}
+
+/* equation */
+.eqbox{display:flex;justify-content:center;min-height:1rem}
+.eq{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:.35rem .4rem;font-family:var(--font-n);font-weight:700;font-size:3.6rem;line-height:1.15}
+.tok{min-width:1.05em;text-align:center;padding:0 .14em;border-radius:.22em;font-variant-numeric:tabular-nums}
+.tok.plus{background:var(--plus);color:#fff}
+.tok.minus{background:var(--minus);color:#fff}
+.tok.eqs{background:var(--eqc);color:#fff}
+.tok.par{color:var(--orange);padding:0}
+.tok.q{background:var(--card);border:.06em dashed var(--muted);color:var(--muted)}
+.tok.q.filled{border:.06em solid var(--plus);color:var(--ink);animation:pop .4s}
+.tok.fresh{background:#FFF4E6;color:var(--orange);animation:pop .4s}
+.garage{position:relative;display:inline-flex;align-items:center;gap:.2rem;padding:.05em .18em;margin-top:.4em;border:.06em solid var(--orange);border-top:0;border-radius:0 0 .2em .2em;background:#FFF4E6}
+.garage::before{content:"";position:absolute;left:-.14em;right:-.14em;top:-.38em;height:.4em;background:var(--orange);clip-path:polygon(0 100%,50% 0,100% 100%)}
+.caption{min-height:1.6em;text-align:center;font-family:var(--font-d);font-size:1.35rem;line-height:1.4;text-wrap:balance}
+
+/* play: dirty street strip */
+.playbar{display:flex;align-items:center;gap:.6rem}
+.track{position:relative;flex:1;min-width:0;height:3.6rem;background:var(--road);border-radius:.7rem;overflow:hidden}
+.track::after{content:"";position:absolute;left:0;right:0;bottom:.9rem;height:.18rem;background:repeating-linear-gradient(90deg,var(--line) 0 1rem,transparent 1rem 1.8rem)}
+.mtruck{position:absolute;left:0;bottom:.25rem;width:3.4rem;z-index:2;transition:left .8s cubic-bezier(.4,1.4,.6,1)}
+.mtruck svg{display:block;width:100%}
+.station{position:absolute;right:.3rem;bottom:.3rem;width:2.2rem;z-index:1}
+.pile{position:absolute;bottom:.25rem;width:1.9rem;z-index:1}
+.pile svg{display:block;width:100%;overflow:visible}
+.pile .stink{animation:stink 1.6s ease-in-out infinite;transform-box:fill-box;transform-origin:center bottom}
+.pile .fly{animation:buzz 1.1s linear infinite;transform-origin:22px 18px}
+.pile.got{animation:collect .6s ease-in forwards}
+@keyframes stink{0%,100%{transform:translateY(0);opacity:.9}50%{transform:translateY(-3px);opacity:.5}}
+@keyframes buzz{to{transform:rotate(360deg)}}
+@keyframes collect{to{transform:translate(-1.6rem,-.5rem) scale(.1);opacity:0}}
+.smell{flex:none;width:3rem;height:3rem;border:0;background:none;padding:0}
+.smell svg{width:100%;height:100%;display:block}
+.streak{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(1rem + env(safe-area-inset-bottom,0px));z-index:40;background:var(--orange);color:#fff;font-family:var(--font-n);font-weight:700;font-size:1.4rem;border-radius:1rem;padding:.35rem .9rem;box-shadow:0 .3rem 0 #C2410C}
+.conf{position:fixed;top:0;width:.7rem;height:.5rem;z-index:70;pointer-events:none;border-radius:.1rem}
+
+.opts{display:flex;justify-content:center;gap:1.2rem 1rem;flex-wrap:wrap;padding-top:.8rem}
+.opt{position:relative;width:6.2rem;height:6.8rem;border:0;border-radius:.4rem .4rem 1.2rem 1.2rem;background:var(--c);color:#fff;font-family:var(--font-n);font-weight:700;font-size:3.8rem;line-height:1;padding:.5rem 0 0;box-shadow:inset 0 -.5rem 0 rgba(0,0,0,.2);text-shadow:0 .15rem 0 rgba(0,0,0,.22);transition:transform .2s,opacity .2s}
+.opt::before{content:"";position:absolute;left:-.4rem;right:-.4rem;top:-.75rem;height:.85rem;border-radius:.45rem .45rem .2rem .2rem;background:var(--c);filter:brightness(.78)}
+.opt:active{transform:translateY(.2rem)}
+.opt.wrong{opacity:.3;transform:rotate(-8deg)}
+.opt.right{animation:hop .6s ease 2}
+.opt.hint{animation:wig .45s ease 4}
+@keyframes hop{50%{transform:translateY(-1rem)}}
+@keyframes wig{25%{transform:rotate(-7deg) scale(1.06)}75%{transform:rotate(7deg) scale(1.06)}}
+.tools{display:flex;gap:.7rem;justify-content:center;flex-wrap:wrap}
+.tool{display:flex;align-items:center;gap:.45rem;font-family:var(--font-d);font-size:1.25rem;padding:.55rem 1.1rem;border-radius:1rem;background:var(--card);border:.13rem solid var(--edge)}
+.tool svg{width:1.6rem;height:1.6rem}
+.tool.main{background:var(--sun);border-color:#E6B800}
+.listen{border:0;width:7rem;height:7rem;border-radius:50%;background:var(--sun);display:grid;place-items:center;align-self:center;box-shadow:inset 0 -.4rem 0 rgba(0,0,0,.12)}
+.listen svg{width:3.6rem;height:3.6rem}
+
+/* buddy: 乐乐叔叔 */
+.playmain{display:flex;gap:.6rem;align-items:stretch}
+.playmain .stage{flex:1;min-width:0}
+.buddy{flex:none;width:8.5rem;border:.13rem solid var(--edge);border-radius:1.3rem;padding:.3rem .2rem 0;background:linear-gradient(#D0EBFF,#F1F8FF);display:flex;align-items:flex-end;justify-content:center;overflow:hidden;transition:background .4s}
+.buddy svg{display:block;width:100%;height:auto;overflow:visible}
+.buddy[data-mood=happy]{background:linear-gradient(#FFF3BF,#E6FCF5)}
+.buddy[data-mood=sad]{background:linear-gradient(#D8E2C8,#EEF0E6)}
+.buddy .sun,.buddy .flowers,.buddy .trash,.buddy .flies,.buddy .stinkh,.buddy .e-happy,.buddy .e-sad,.buddy .m-happy,.buddy .m-sad,.buddy .a-happy,.buddy .a-sad,.buddy .cheek{display:none}
+.buddy[data-mood=happy] :is(.sun,.flowers,.e-happy,.m-happy,.a-happy,.cheek){display:inline}
+.buddy[data-mood=happy] :is(.e-idle,.m-idle,.a-idle){display:none}
+.buddy[data-mood=sad] :is(.trash,.flies,.stinkh,.e-sad,.m-sad,.a-sad){display:inline}
+.buddy[data-mood=sad] :is(.e-idle,.m-idle,.a-idle){display:none}
+.buddy .rays{transform-origin:60px 16px;animation:spin 6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.buddy[data-mood=happy] .guy{animation:jump .5s ease 3}
+@keyframes jump{50%{transform:translateY(-8px)}}
+.buddy[data-mood=sad] .guy{animation:shiver .12s linear 12}
+@keyframes shiver{50%{transform:translateX(1.5px)}}
+.buddy .flower{transform-box:fill-box;transform-origin:center bottom;animation:grow .6s cubic-bezier(.3,1.6,.6,1) both}
+.buddy .flower.f2{animation-delay:.15s}.buddy .flower.f3{animation-delay:.3s}.buddy .flower.f4{animation-delay:.45s}
+@keyframes grow{from{transform:scale(0)}}
+.buddy .trash > *{transform-box:fill-box;transform-origin:center bottom;animation:grow .4s ease both}
+.buddy .fly{animation:flyin 1s ease-out both,hov .35s 1s ease-in-out infinite alternate}
+.buddy .fly.f2{animation-delay:.2s,1.2s}.buddy .fly.f3{animation-delay:.4s,1.4s}
+@keyframes flyin{from{transform:translate(70px,-20px)}to{transform:translate(0,0)}}
+@keyframes hov{to{transform:translate(3px,-3px)}}
+.buddy .stinkh{animation:stink 1.4s ease-in-out infinite}
+.buddy.big{width:11rem;border-radius:1.5rem}
+@media (max-width:600px){
+  .buddy{width:5.4rem}
+  .playmain .stage{--bag:1.6rem;padding-inline:.3rem}
+  .playmain .stage.small{--bag:1.25rem}
+  .playmain .stage.tiny{--bag:1.05rem}
+  .playmain .cab{width:3.2rem}
+  .playmain .wheel.w2{right:3.7rem}
+  .playmain .sweeper{width:7.5rem}
+  .playmain .badge{font-size:2rem}
+}
+
+/* done */
+.done{align-items:center;text-align:center;padding-top:1.5rem}
+.done h2{font-family:var(--font-d);font-weight:400;font-size:3rem;margin:0}
+.bigstars{display:flex;gap:.6rem}
+.bigstars svg{width:4.5rem;height:4.5rem;fill:#D5DEE8}
+.bigstars svg.on{fill:var(--sun);animation:pop .5s ease both}
+.bigstars svg.on:nth-child(2){animation-delay:.25s}.bigstars svg.on:nth-child(3){animation-delay:.5s}
+.unlock{display:flex;flex-direction:column;align-items:center;gap:.5rem;background:var(--card);border:.18rem solid var(--edge);border-radius:1.3rem;padding:1rem 1.2rem;--bag:1.2rem;max-width:100%}
+.unlock.new{border-color:var(--sun);box-shadow:0 0 0 .3rem #FFF3BF}
+.unlock.next .truck{filter:grayscale(1) brightness(.45);opacity:.75}
+.unlock .t{font-family:var(--font-d);font-size:1.5rem}
+.unlock .need{display:flex;align-items:center;gap:.3rem;font-family:var(--font-n);font-weight:700;font-size:1.6rem}
+.unlock .need svg{width:1.6rem;height:1.6rem;fill:#FAB005}
+
+@media (max-width:520px){
+  .eq{font-size:2.8rem}
+  .opt{width:5.3rem;height:6rem;font-size:3.2rem}
+  .hero h1{font-size:2rem}
+  .bigdigit{font-size:6rem}
+}
+@media (prefers-reduced-motion:reduce){
+  .hero-truck{animation:none;left:30%}
+  *{animation-duration:.01s!important;transition-duration:.01s!important}
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <button class="ib" id="homeBtn" aria-label="回到首页" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></button>
+    <div class="brand">垃圾车数学</div>
+    <button class="ib" id="zoomOut" aria-label="缩小">A−</button>
+    <button class="ib" id="zoomIn" aria-label="放大">A+</button>
+    <button class="ib" id="soundBtn" aria-label="声音开关"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
+    <button class="ib" id="fsBtn" aria-label="全屏"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  </header>
+
+  <!-- HOME -->
+  <section class="screen" id="home">
+    <div class="hero" id="hero">
+      <h1>垃圾车数学<small>开着垃圾车，学会加法和减法</small></h1>
+      <div class="sidewalk"></div>
+      <div class="minibins" id="minibins"></div>
+      <button class="hero-light" id="heroLight" aria-label="红绿灯">
+        <div class="tl v" data-on="green"><span class="lamp lr"></span><span class="lamp ly"></span><span class="lamp lg"></span></div>
+        <div class="pole"></div>
+      </button>
+      <div class="road"></div>
+      <button class="hero-truck" id="heroTruck" aria-label="垃圾车"></button>
+    </div>
+
+    <div class="homecards">
+      <button class="learncard" id="learnBtn">
+        <svg viewBox="0 0 60 50" aria-hidden="true"><rect x="4" y="6" width="52" height="38" rx="8" fill="#fff"/><text x="30" y="36" text-anchor="middle" font-family="Fredoka,Arial" font-weight="700" font-size="26" fill="#2F9E44">+</text><text x="14" y="36" text-anchor="middle" font-family="Fredoka,Arial" font-weight="700" font-size="20" fill="#1B2A41">1</text><text x="46" y="36" text-anchor="middle" font-family="Fredoka,Arial" font-weight="700" font-size="20" fill="#1B2A41">2</text></svg>
+        <div><div class="t">学一学</div><div class="s">数字、加号、减号、等号、零、括号</div></div>
+      </button>
+      <button class="learncard gar" id="garageBtn">
+        <span id="garIcon"></span>
+        <div><div class="t">我的车库</div><div class="statrow" id="homeStats"></div></div>
+      </button>
+    </div>
+
+    <div class="sec">闯关</div>
+    <div class="levels" id="levels"></div>
+
+    <div class="tips">
+      <h3>给家长</h3>
+      <ul>
+        <li>孩子不用认字：所有题目和讲解都会用普通话读出来，喇叭按钮可以再听一遍。</li>
+        <li>建议顺序：先“学一学”里点“数字”和“零”，再闯关 认数字 → 认符号 → 10以内 → 20以内 → 30以内。</li>
+        <li>每关开始街上有 8 堆臭垃圾，答对一题收走一堆，右上的小脸从“臭臭”变“香香”。答错只亮红灯并演示，不会加垃圾。</li>
+        <li>星星可以在“我的车库”解锁新垃圾车（最多 15 颗星，金色垃圾车需要全部满星）。</li>
+        <li>右上角 A+ / A− 放大缩小画面。如果没有声音，请检查手机静音键或换用 Chrome / Safari。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- GARAGE -->
+  <section class="screen" id="garage" hidden>
+    <div class="ghead"><h2>我的车库</h2><div class="statrow" id="garStats"></div></div>
+    <div class="cars" id="cars"></div>
+    <div class="caption" id="gCap"></div>
+  </section>
+
+  <!-- LEARN -->
+  <section class="screen" id="learn" hidden>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div class="screen" id="lPanel"></div>
+  </section>
+
+  <!-- PLAY -->
+  <section class="screen" id="play" hidden>
+    <div class="playbar">
+      <div class="tl" id="pLight" data-on="yellow"><span class="lamp lr"></span><span class="lamp ly"></span><span class="lamp lg"></span></div>
+      <div class="track" id="track">
+        <div class="mtruck" id="mtruck"></div>
+        <svg class="station" viewBox="0 0 40 40" aria-hidden="true"><path d="M4 18 20 6l16 12v18H4z" fill="#FFD43B" stroke="#E6A700" stroke-width="2.5"/><rect x="14" y="22" width="12" height="14" fill="#5C6B7A"/><path d="M20 6V0" stroke="#fff" stroke-width="2"/><path d="M20 0h9l-3 3 3 3h-9" fill="#E03131"/></svg>
+      </div>
+      <button class="smell" id="smell" aria-label="街道的味道"></button>
+    </div>
+    <div class="playmain">
+      <button class="buddy" id="buddy" data-mood="idle" aria-label="乐乐叔叔"></button>
+      <div class="stage" id="pStage"></div>
+    </div>
+    <div class="eqbox" id="pEq"></div>
+    <div class="caption" id="pCap"></div>
+    <div class="opts" id="pOpts"></div>
+    <div class="tools">
+      <button class="tool" id="pSay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg>再听一遍</button>
+      <button class="tool main" id="pHelp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z" fill="#fff"/></svg>帮帮我</button>
+    </div>
+    <div class="streak" id="streak" hidden></div>
+  </section>
+
+  <!-- DONE -->
+  <section class="screen done" id="done" hidden>
+    <div class="buddy big" id="doneBuddy" data-mood="happy"></div>
+    <h2>街道干净啦！</h2>
+    <div class="bigstars" id="bigstars"></div>
+    <div class="caption" id="dCap"></div>
+    <div id="unlockBox"></div>
+    <div class="tools">
+      <button class="tool" id="againBtn">再玩一次</button>
+      <button class="tool main" id="nextBtn">下一关</button>
+      <button class="tool" id="backBtn">回到首页</button>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const LS={get(k,d){try{const v=localStorage.getItem('gtm_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('gtm_'+k,JSON.stringify(v))}catch(e){}}};
+const S={zoom:LS.get('zoom',1.1),sound:LS.get('sound',true),stars:LS.get('stars',{}),truck:LS.get('truck','green'),piles:LS.get('piles',0)};
+let runId=0,capEl=null,cur=null,sc=null,eqNode=null,game=null,busy=false;
+const wait=ms=>new Promise(r=>setTimeout(r,reduce?Math.min(ms,150):ms));
+const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+function h(tag,cls,html){const e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e}
+
+/* ---------- Chinese numbers & speech ---------- */
+const D=['零','一','二','三','四','五','六','七','八','九','十'];
+function cn(n){n=+n;if(n<=10)return D[n];if(n<20)return '十'+D[n-10];const t=Math.floor(n/10),o=n%10;return D[t]+'十'+(o?D[o]:'')}
+const cnM=n=>(+n===2?'两':cn(n));
+const opName=o=>o==='+'?'加':'减';
+const calc=(x,o,y)=>o==='+'?x+y:x-y;
+
+let zhVoice=null;
+function pickVoice(){try{const vs=speechSynthesis.getVoices();zhVoice=vs.find(v=>/zh[-_]CN/i.test(v.lang))||vs.find(v=>/^zh/i.test(v.lang))||null}catch(e){}}
+try{pickVoice();speechSynthesis.onvoiceschanged=pickVoice}catch(e){}
+function say(text){
+  if(capEl)capEl.textContent=text;
+  return new Promise(res=>{
+    const est=Math.max(800,text.length*280);let done=false;const fin=()=>{if(!done){done=true;res()}};
+    if(!text){fin();return}
+    if(!S.sound||!('speechSynthesis' in window)){setTimeout(fin,Math.min(est,1500));return}
+    try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='zh-CN';u.rate=.85;u.pitch=1.15;if(zhVoice)u.voice=zhVoice;
+      u.onend=fin;u.onerror=fin;speechSynthesis.speak(u);setTimeout(fin,est+2500)}catch(e){setTimeout(fin,est)}
+  });
+}
+function hush(){try{speechSynthesis.cancel()}catch(e){}}
+let ac;
+function tone(f,d=.12,type='sine',vol=.15,slide=0){if(!S.sound)return;try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();const t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain();o.type=type;o.frequency.setValueAtTime(f,t);if(slide)o.frequency.exponentialRampToValueAtTime(slide,t+d);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+d)}catch(e){}}
+const sfx={plop:()=>tone(560,.12,'triangle',.2,260),suck:()=>tone(1000,.22,'sawtooth',.05,180),ding:()=>{tone(880,.15);setTimeout(()=>tone(1320,.3),130)},buzz:()=>tone(170,.35,'square',.07),honk:()=>{tone(392,.16,'square',.06);setTimeout(()=>tone(392,.26,'square',.06),220)},fanfare:()=>{[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.22,'triangle',.18),i*140))}};
+
+/* ---------- trucks you can unlock ---------- */
+const TRUCKS=[
+  {id:'green',name:'绿色垃圾车',c:'#2F9E44',d:'#1F6E30',bag:'#F76707',need:0},
+  {id:'blue',name:'蓝色压缩车',c:'#1C7ED6',d:'#1864AB',bag:'#F76707',need:2},
+  {id:'orange',name:'橙色环卫车',c:'#F76707',d:'#C2410C',bag:'#495057',need:4},
+  {id:'red',name:'红色勾臂车',c:'#E03131',d:'#A51D1D',bag:'#495057',need:6},
+  {id:'purple',name:'紫色电动车',c:'#7048E8',d:'#4C2FB0',bag:'#F76707',need:9},
+  {id:'rainbow',name:'彩虹垃圾车',c:'#7048E8',d:'#343A40',bag:'#343A40',bg:'linear-gradient(90deg,#E03131,#F76707,#FCC419,#2F9E44,#1C7ED6,#7048E8)',need:12},
+  {id:'gold',name:'金色垃圾车',c:'#E0A800',d:'#9A7400',bag:'#343A40',bg:'linear-gradient(135deg,#FFE066,#E0A800 55%,#FFF3BF)',need:15}
+];
+const totalStars=()=>Object.values(S.stars).reduce((a,b)=>a+b,0);
+const curTruck=()=>TRUCKS.find(t=>t.id===S.truck&&totalStars()>=t.need)||TRUCKS[0];
+function cabSVG(t){return `<svg viewBox="0 0 50 56" aria-hidden="true"><path d="M2 6H28Q32 6 34 9L47 28Q48 30 48 33V48H2Z" fill="${t.c}" stroke="${t.d}" stroke-width="2.5"/><path d="M8 12H27L38 28H8Z" fill="#D0EBFF" stroke="${t.d}" stroke-width="2"/><rect x="40" y="36" width="7" height="5" rx="1.5" fill="#FFD43B"/><rect x="2" y="44" width="46" height="6" fill="${t.d}"/><circle cx="14" cy="4" r="3.2" fill="#FA5252"/></svg>`}
+function miniTruckSVG(t){return `<svg viewBox="0 0 80 50" aria-hidden="true"><rect x="2" y="8" width="46" height="30" rx="5" fill="${t.c}" stroke="${t.d}" stroke-width="3"/><path d="M48 14h14q4 0 6 3l9 13v8H48z" fill="${t.c}" stroke="${t.d}" stroke-width="3"/><path d="M52 18h10l6 10H52z" fill="#D0EBFF"/><circle cx="16" cy="42" r="6" fill="#262B33"/><circle cx="62" cy="42" r="6" fill="#262B33"/></svg>`}
+
+/* ---------- drawing pieces ---------- */
+const SWEEPER='<svg viewBox="0 0 130 80" aria-hidden="true"><path d="M30 22Q8 20 9 42V64" fill="none" stroke="#343A40" stroke-width="7" stroke-linecap="round"/><rect x="1" y="62" width="16" height="10" rx="3" fill="#343A40"/><rect x="26" y="14" width="66" height="46" rx="8" fill="#F76707" stroke="#C2410C" stroke-width="3"/><path d="M92 26H110Q116 26 119 32L126 46V60H92Z" fill="#F76707" stroke="#C2410C" stroke-width="3"/><path d="M97 31H110L117 45H97Z" fill="#D0EBFF"/><rect x="26" y="58" width="100" height="6" fill="#C2410C"/><circle cx="44" cy="68" r="9" fill="#262B33" stroke="#555D6B" stroke-width="4"/><circle cx="108" cy="68" r="9" fill="#262B33" stroke="#555D6B" stroke-width="4"/><rect x="60" y="5" width="9" height="10" rx="2" fill="#FFD43B"/></svg>';
+const SPARKLE='<svg viewBox="0 0 60 40" aria-hidden="true"><path d="M16 6l2.5 7.5L26 16l-7.5 2.5L16 26l-2.5-7.5L6 16l7.5-2.5z" fill="#FCC419"/><path d="M42 2l2 5.5 5.5 2-5.5 2-2 5.5-2-5.5-5.5-2 5.5-2z" fill="#FCC419"/><path d="M44 22l1.6 4.4 4.4 1.6-4.4 1.6L44 34l-1.6-4.4-4.4-1.6 4.4-1.6z" fill="#74C0FC"/></svg>';
+const PILE='<svg viewBox="0 0 40 44" aria-hidden="true"><g class="stink" fill="none" stroke="#69DB7C" stroke-width="2.4" stroke-linecap="round"><path d="M10 15q-3-3 0-6t0-6"/><path d="M20 13q-3-3 0-6t0-6"/><path d="M30 15q-3-3 0-6t0-6"/></g><path d="M3 43q-3-12 7-16 9 2 8 16z" fill="#495057"/><path d="M14 43q-2-14 11-17 11 4 10 17z" fill="#868E96"/><path d="M20 28l5-2" stroke="#212529" stroke-width="2"/><path d="M6 30l4-2" stroke="#212529" stroke-width="2"/><circle class="fly" cx="31" cy="18" r="2" fill="#212529"/></svg>';
+const STAR='<svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 20.9l1.6-7L2 9.2l7.1-.6z"/></svg>';
+const SPEAKER='<svg viewBox="0 0 24 24" fill="none" stroke="#1B2A41" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="#1B2A41"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg>';
+const TRUCK_BAG='#F76707', BIN_BAG='#FCC419';
+const PAPER=['#FFF3BF','#FFDEEB','#D0EBFF','#FFFFFF','#D3F9D8'];
+const BINC=['var(--recycle)','var(--kitchen)','var(--harm)','var(--other)'];
+
+/* 乐乐叔叔: original sanitation-worker buddy, moods idle / happy / sad */
+function flowerSVG(x,color,cls){return `<g transform="translate(${x} 158)"><g class="flower ${cls}"><path d="M0 0V-14" stroke="#2F9E44" stroke-width="2.2"/><path d="M0-6q5-4 7 0q-4 3-7 0z" fill="#40C057"/>${[0,72,144,216,288].map(a=>`<circle cx="${(Math.sin(a*Math.PI/180)*4).toFixed(1)}" cy="${(-17-Math.cos(a*Math.PI/180)*4).toFixed(1)}" r="3.2" fill="${color}"/>`).join('')}<circle cx="0" cy="-17" r="2.4" fill="#FCC419"/></g></g>`}
+function flySVG(x,y,cls){return `<g class="fly ${cls}"><ellipse cx="${x-2.5}" cy="${y-3}" rx="2.6" ry="1.8" fill="#D0EBFF" stroke="#868E96" stroke-width=".6"/><ellipse cx="${x+2.5}" cy="${y-3}" rx="2.6" ry="1.8" fill="#D0EBFF" stroke="#868E96" stroke-width=".6"/><circle cx="${x}" cy="${y}" r="2.6" fill="#212529"/></g>`}
+const BUDDY=`<svg viewBox="0 0 120 170" aria-hidden="true">
+<g class="sun"><g class="rays" stroke="#FAB005" stroke-width="3" stroke-linecap="round">${[0,45,90,135,180,225,270,315].map(a=>`<path d="M60 1v4" transform="rotate(${a} 60 16)"/>`).join('')}</g><circle cx="60" cy="16" r="8" fill="#FFD43B"/></g>
+<rect x="0" y="158" width="120" height="12" fill="#CED4DA"/>
+<g class="flowers">${flowerSVG(12,'#F06595','f1')}${flowerSVG(26,'#FF922B','f2')}${flowerSVG(96,'#845EF7','f3')}${flowerSVG(110,'#FA5252','f4')}</g>
+<g class="trash"><path d="M6 158q1-11 8-9q5 2 3 9z" fill="#495057"/><path d="M20 158q7-7 14 0q-7-3-14 0z" fill="#FAB005"/><path d="M95 158l3-10h8l2 10z" fill="#868E96"/><circle cx="112" cy="155" r="3.2" fill="#F8F9FA" stroke="#ADB5BD"/></g>
+<g class="guy">
+  <rect x="45" y="128" width="12" height="26" rx="3" fill="#364FC7"/><rect x="63" y="128" width="12" height="26" rx="3" fill="#364FC7"/>
+  <ellipse cx="50" cy="156" rx="8" ry="4" fill="#343A40"/><ellipse cx="70" cy="156" rx="8" ry="4" fill="#343A40"/>
+  <path d="M40 92q20-8 40 0v40H40z" fill="#F76707"/>
+  <rect x="40" y="104" width="40" height="5" fill="#E9ECEF"/><rect x="40" y="118" width="40" height="5" fill="#E9ECEF"/>
+  <path d="M52 87l8 10 8-10z" fill="#1C7ED6"/>
+  <g fill="none" stroke="#F76707" stroke-width="9" stroke-linecap="round">
+    <path class="a-idle" d="M43 95q-10 14-8 30M77 95q10 14 8 30"/>
+    <path class="a-happy" d="M43 95q-14-8-18-26M77 95q14-8 18-26"/>
+    <path class="a-sad" d="M43 95q-16 0-22-14"/>
+  </g>
+  <g fill="#FFD8A8"><circle class="a-idle" cx="35" cy="127" r="5"/><circle class="a-idle" cx="85" cy="127" r="5"/><circle class="a-happy" cx="24" cy="66" r="5"/><circle class="a-happy" cx="96" cy="66" r="5"/><circle class="a-sad" cx="20" cy="79" r="5"/></g>
+  <circle cx="38" cy="64" r="4.5" fill="#FFC9A0"/><circle cx="82" cy="64" r="4.5" fill="#FFC9A0"/>
+  <circle cx="60" cy="64" r="22" fill="#FFD8A8"/>
+  <path d="M38 55Q38 35 60 35Q82 35 82 55Z" fill="#F76707"/><rect x="36" y="53" width="50" height="5" rx="2" fill="#E8590C"/><rect x="54" y="40" width="12" height="7" rx="2" fill="#fff"/>
+  <g class="cheek" fill="#FFA8A8" opacity=".8"><circle cx="46" cy="71" r="3.5"/><circle cx="74" cy="71" r="3.5"/></g>
+  <g class="e-idle" fill="#1B2A41"><circle cx="52" cy="64" r="2.6"/><circle cx="68" cy="64" r="2.6"/></g>
+  <g class="e-happy" fill="none" stroke="#1B2A41" stroke-width="2.4" stroke-linecap="round"><path d="M48 65q4-5 8 0M64 65q4-5 8 0"/></g>
+  <g class="e-sad" fill="none" stroke="#1B2A41" stroke-width="2.4" stroke-linecap="round"><path d="M48 60l7 3M72 60l-7 3M48 66h7M65 66h7"/></g>
+  <circle cx="60" cy="69" r="2.6" fill="#F4A27A"/>
+  <path class="m-idle" d="M53 76q7 5 14 0" fill="none" stroke="#1B2A41" stroke-width="2.4" stroke-linecap="round"/>
+  <path class="m-happy" d="M50 74q10 14 20 0z" fill="#C92A2A" stroke="#1B2A41" stroke-width="2" stroke-linejoin="round"/>
+  <path class="m-sad" d="M51 79q3-3 6 0t6 0t6 0" fill="none" stroke="#1B2A41" stroke-width="2.4" stroke-linecap="round"/>
+  <g class="a-sad"><path d="M77 95q14-10-11-26" fill="none" stroke="#F76707" stroke-width="9" stroke-linecap="round"/><circle cx="62" cy="69" r="5.5" fill="#FFD8A8" stroke="#E8A87C" stroke-width="1"/></g>
+</g>
+<g class="stinkh" fill="none" stroke="#69DB7C" stroke-width="2.4" stroke-linecap="round"><path d="M96 46q-3-3 0-6t0-6"/><path d="M104 60q-3-3 0-6t0-6"/><path d="M24 50q-3-3 0-6t0-6"/></g>
+<g class="flies">${flySVG(88,46,'f1')}${flySVG(98,72,'f2')}${flySVG(32,42,'f3')}</g>
+</svg>`;
+let moodTimer=null;
+function setMood(m){clearTimeout(moodTimer);const b=$('#buddy');if(b)b.dataset.mood=m}
+
+function faceSVG(m){
+  const bg=['#A9E34B','#FFE066','#FFC9C9','#FFDEEB'][m];
+  const eyes=m===0?'<path d="M10 14l6 3M30 14l-6 3" stroke="#1B2A41" stroke-width="2.4" stroke-linecap="round"/>':m===3?'<path d="M10 17q4-4 8 0M22 17q4-4 8 0" fill="none" stroke="#1B2A41" stroke-width="2.4" stroke-linecap="round"/>':'<circle cx="14" cy="16" r="2.3" fill="#1B2A41"/><circle cx="26" cy="16" r="2.3" fill="#1B2A41"/>';
+  const mouth=['M11 29q2-3 4.5 0t4.5 0 4.5 0 4.5 0','M14 27h12','M12 25q8 7 16 0','M11 24q9 11 18 0'][m];
+  const extra=m===0?'<g fill="none" stroke="#5C940D" stroke-width="2" stroke-linecap="round"><path d="M3 9q-2-2 0-4t0-4"/><path d="M37 9q-2-2 0-4t0-4"/></g>':m===3?'<g fill="#F06595"><circle cx="33" cy="5" r="3"/><circle cx="37.5" cy="8" r="3"/><circle cx="34" cy="10.5" r="3"/><circle cx="35" cy="7.8" r="1.8" fill="#FCC419"/></g>':'';
+  return `<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="21" r="17" fill="${bg}" stroke="#1B2A41" stroke-width="2"/>${eyes}<path d="${mouth}" fill="none" stroke="#1B2A41" stroke-width="2.4" stroke-linecap="round"/>${extra}</svg>`;
+}
+
+function bagEl(c){const e=h('div','bag');e.dataset.c=c;e.innerHTML=`<svg viewBox="0 0 40 44" aria-hidden="true"><path d="M13 3L20 10L27 3L25 12H15Z" fill="${c}"/><path d="M15 11Q4 17 5 31Q6 42 20 42Q34 42 35 31Q36 17 25 11Z" fill="${c}" stroke="rgba(0,0,0,.28)" stroke-width="1.5"/><path d="M14 12H26" stroke="rgba(0,0,0,.4)" stroke-width="2.5" stroke-linecap="round"/><path d="M11 22Q12 32 18 36" stroke="rgba(255,255,255,.5)" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>`;return e}
+function paperEl(i){const e=h('div','paper');e.style.setProperty('--r',(((i*37)%21)-10)+'deg');e.style.backgroundColor=PAPER[i%PAPER.length];return e}
+const colsFor=()=>5; // ten-frame: every two rows = 10
+function loadEl(cols){const e=h('div','load');e.style.setProperty('--cols',cols);return e}
+function truckEl(n,cols,bag,t){t=t||curTruck();const tr=h('div','truck'),box=h('div','tbox'),load=loadEl(cols);box.style.setProperty('--tbg',t.bg||t.c);box.style.setProperty('--td',t.d);for(let i=0;i<n;i++)load.appendChild(bagEl(bag||t.bag));box.appendChild(load);tr.append(box,h('div','cab',cabSVG(t)),h('span','wheel w1'),h('span','wheel w2'),h('span','wheel w3'));return{el:tr,load}}
+function binEl(n,cols,color,bag){const b=h('div','bin');b.style.setProperty('--c',color);const load=loadEl(cols);for(let i=0;i<n;i++)load.appendChild(bagEl(bag||BIN_BAG));const body=h('div','bbody');body.append(load);b.append(h('div','lid'),body,h('span','bw b1'),h('span','bw b2'));return{el:b,load}}
+function unit(inner,num,label){const u=h('div','unit');const badge=h('div','badge',String(num));u.append(inner,badge);if(label)u.append(h('div','ulabel',label));return{el:u,badge}}
+function sizeStage(stage,n){stage.classList.toggle('small',n>10&&n<=20);stage.classList.toggle('tiny',n>20)}
+function pulse(el){if(!el)return;el.classList.remove('pulse');void el.offsetWidth;el.classList.add('pulse')}
+function flyClone(src,to,opt={}){
+  const r=src.getBoundingClientRect(),c=src.cloneNode(true);c.classList.add('flying');c.classList.remove('gone','pulse','pop');
+  Object.assign(c.style,{left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px',visibility:'visible'});document.body.appendChild(c);
+  const dx=to.left+to.width/2-(r.left+r.width/2),dy=to.top+to.height/2-(r.top+r.height/2),rot=opt.rot||0;
+  const an=c.animate([{transform:'translate(0,0) rotate(0) scale(1)'},{transform:`translate(${dx*.5}px,${dy*.5-50}px) rotate(${rot/2}deg) scale(${opt.mid||1.2})`},{transform:`translate(${dx}px,${dy}px) rotate(${rot}deg) scale(${opt.end||1})`}],{duration:reduce?60:(opt.dur||520),easing:'ease-in-out'});
+  return an.finished.then(()=>c.remove(),()=>c.remove());
+}
+function confetti(){
+  if(reduce)return;const cols=['#E03131','#1C7ED6','#2F9E44','#FCC419','#F76707','#7048E8'];
+  for(let i=0;i<40;i++){const d=h('div','conf');d.style.left=Math.random()*100+'vw';d.style.background=cols[i%6];document.body.appendChild(d);
+    const dx=(Math.random()-.5)*180,rot=Math.random()*720;
+    d.animate([{transform:'translate(0,-5vh) rotate(0)'},{transform:`translate(${dx}px,105vh) rotate(${rot}deg)`}],{duration:1800+Math.random()*1200,easing:'cubic-bezier(.2,.6,.4,1)'}).finished.then(()=>d.remove(),()=>d.remove())}
+}
+
+/* ---------- scenes ---------- */
+function addScene(stage,a,b){
+  stage.innerHTML='';sizeStage(stage,a+b);
+  const bin=binEl(b,colsFor(Math.max(b,1)),'var(--recycle)'),truck=truckEl(a,colsFor(Math.max(a+b,1)));
+  const bu=unit(bin.el,b,'垃圾桶'),tu=unit(truck.el,a,'垃圾车');
+  const s=h('div','scene');s.append(bu.el,tu.el);stage.append(s);
+  return{kind:'add',a,b,bin:bin.el,binLoad:bin.load,truckLoad:truck.load,binBadge:bu.badge,truckBadge:tu.badge,binUnit:bu.el,truckUnit:tu.el};
+}
+function subScene(stage,a,b){
+  stage.innerHTML='';sizeStage(stage,a);
+  const g=h('div','ground'),load=loadEl(colsFor(Math.max(a,1)));for(let i=0;i<a;i++)load.appendChild(paperEl(i));g.append(load,h('div','shine',SPARKLE));
+  if(a===0)g.classList.add('clean');
+  const sw=h('div','sweeper',SWEEPER),noz=h('div','nozzle'),tank=h('div','tank');sw.append(noz,tank);
+  const gu=unit(g,a,'地上的纸片'),su=unit(sw,b,'吸尘车要吸走');
+  const s=h('div','scene');s.append(gu.el,su.el);stage.append(s);
+  return{kind:'sub',a,b,load,ground:g,sweeper:sw,nozzle:noz,tank,groundBadge:gu.badge,groundUnit:gu.el,sweepUnit:su.el};
+}
+function binScene(stage,n,badge,withDigit){
+  stage.innerHTML='';sizeStage(stage,n);
+  const bin=binEl(n,colsFor(Math.max(n,1)),'var(--kitchen)',TRUCK_BAG),bu=unit(bin.el,badge,'垃圾桶');
+  const s=h('div','scene');if(withDigit)s.append(h('div','bigdigit',String(n)));s.append(bu.el);stage.append(s);
+  return{kind:'bin',n,load:bin.load,badge:bu.badge,binUnit:bu.el};
+}
+function tokEl(t){t=String(t);const k=t==='+'?'plus':t==='−'?'minus':t==='='?'eqs':(t==='?'||t==='○')?'q':(t==='('||t===')')?'par':'num';return h('span','tok '+k,t)}
+function eqEl(parts){const e=h('div','eq');for(const p of parts){if(p&&typeof p==='object'){const g=h('span','garage');p.g.forEach(x=>g.appendChild(tokEl(x)));e.appendChild(g)}else e.appendChild(tokEl(p))}return e}
+function fillQ(eq,v){const t=eq&&eq.querySelector('.tok.q');if(!t)return;t.textContent=v;if(v==='+'||v==='−'){t.className='tok '+(v==='+'?'plus':'minus')}else t.classList.add('filled')}
+
+/* ---------- animations ---------- */
+async function animAdd(s,{narrate=true}={}){
+  const id=runId,ok=()=>id===runId,{a,b}=s;
+  if(narrate){
+    pulse(s.truckUnit);await say(a===0?'垃圾车是空的，一袋也没有，就是零。':`垃圾车里有${cnM(a)}袋垃圾。`);if(!ok())return false;
+    pulse(s.binUnit);await say(b===0?'垃圾桶是空的，一袋也没有，就是零。':`垃圾桶里有${cnM(b)}袋垃圾。`);if(!ok())return false;
+    await say(b===0?'加零，什么也没倒进去，垃圾车里还是一样多。':'加号，就是倒进去，变多啦！');if(!ok())return false;
+  }
+  s.bin.classList.add('tip');sfx.honk();await wait(550);if(!ok())return false;
+  if(narrate&&b>0){await say(a===0?'我们来数：':`从${cn(a)}接着数：`);if(!ok())return false}
+  let n=a;
+  for(const src of [...s.binLoad.children]){
+    if(!ok())return false;
+    const nb=bagEl(src.dataset.c);nb.style.visibility='hidden';s.truckLoad.appendChild(nb);
+    const p=flyClone(src,nb.getBoundingClientRect(),{rot:25});src.style.visibility='hidden';await p;
+    nb.style.visibility='';nb.classList.add('pop');sfx.plop();n++;s.truckBadge.textContent=n;
+    if(narrate)await say(cn(n));else await wait(90);
+  }
+  await wait(250);s.bin.classList.remove('tip');if(!ok())return false;
+  pulse(s.truckUnit);
+  if(narrate)await say(`现在一共${cnM(a+b)}袋。${cn(a)}加${cn(b)}，等于${cn(a+b)}。`);
+  return ok();
+}
+async function animSub(s,{narrate=true}={}){
+  const id=runId,ok=()=>id===runId,{a,b}=s;
+  if(narrate){
+    pulse(s.groundUnit);await say(a===0?'地上一张纸片也没有，就是零。':`地上有${cnM(a)}张纸片。`);if(!ok())return false;
+    pulse(s.sweepUnit);await say(b===0?'吸尘车一张也不吸，就是减零。':b===a?`吸尘车要把${cnM(b)}张，全部吸走！`:`吸尘车要吸走${cnM(b)}张。`);if(!ok())return false;
+    if(b>0){await say('减号，就是拿走，变少啦！看，纸片跑到吸尘车肚子里去了。');if(!ok())return false}
+  }
+  s.sweeper.classList.add('sucking');
+  const papers=[...s.load.children];let remain=a;
+  for(let i=0;i<b;i++){
+    if(!ok()){s.sweeper.classList.remove('sucking');return false}
+    const p=papers[papers.length-1-i];
+    const f=flyClone(p,s.nozzle.getBoundingClientRect(),{end:.15,rot:-220,mid:1,dur:600});
+    p.remove();sfx.suck();await f;
+    const tp=paperEl(i);tp.classList.add('pop');s.tank.appendChild(tp);
+    remain--;s.groundBadge.textContent=remain;
+    if(narrate)await say(`吸走${cn(i+1)}`);else await wait(90);
+  }
+  s.sweeper.classList.remove('sucking');if(!ok())return false;
+  if(remain===0)s.ground.classList.add('clean');
+  pulse(s.groundUnit);
+  if(narrate){
+    if(remain===0&&a>0)await say(`地上一张也不剩，干干净净，就是零！${cn(a)}减${cn(b)}，等于零。`);
+    else await say(`地上还剩${cnM(a-b)}张。${cn(a)}减${cn(b)}，等于${cn(a-b)}。`);
+  }
+  return ok();
+}
+async function animCount(s){
+  const id=runId,bags=[...s.load.children];
+  if(!bags.length){pulse(s.binUnit);await say('垃圾桶里空空的，一袋也没有，就是零。');return id===runId}
+  for(let i=0;i<bags.length;i++){if(id!==runId)return false;pulse(bags[i]);sfx.plop();await say(cn(i+1))}
+  if(id!==runId)return false;await say(`一共${cnM(bags.length)}袋，就是${cn(bags.length)}。`);return id===runId;
+}
+async function animParen(eq,q){
+  const id=runId,ok=()=>id===runId,g=eq.querySelector('.garage');if(!g)return false;
+  pulse(g);await say('括号像一个小车库，要先算车库里面的。');if(!ok())return false;
+  await say(`${cn(q.a)}${opName(q.op1)}${cn(q.b)}，等于${cn(q.m)}。`);if(!ok())return false;
+  const t=tokEl(q.m);t.classList.add('fresh');g.replaceWith(t);sfx.plop();await wait(400);if(!ok())return false;
+  const l=q.left?q.m:q.c,r=q.left?q.c:q.m;
+  await say(`再算外面：${cn(l)}${opName(q.op2)}${cn(r)}，等于${cn(q.ans)}。`);if(!ok())return false;
+  fillQ(eq,String(q.ans));return true;
+}
+
+/* ---------- navigation & chrome ---------- */
+function show(id){document.querySelectorAll('.wrap > .screen').forEach(s=>s.hidden=s.id!==id);runId++;hush();busy=false;window.scrollTo(0,0);$('#homeBtn').hidden=id==='home';$('#streak').hidden=true}
+function applyZoom(){document.documentElement.style.setProperty('--zoom',S.zoom)}
+applyZoom();
+$('#zoomIn').onclick=()=>{S.zoom=Math.min(1.8,+(S.zoom+.1).toFixed(2));applyZoom();LS.set('zoom',S.zoom)};
+$('#zoomOut').onclick=()=>{S.zoom=Math.max(.8,+(S.zoom-.1).toFixed(2));applyZoom();LS.set('zoom',S.zoom)};
+function paintSound(){$('#soundBtn').classList.toggle('off',!S.sound)}paintSound();
+$('#soundBtn').onclick=()=>{S.sound=!S.sound;LS.set('sound',S.sound);paintSound();if(!S.sound)hush();else say('声音打开啦')};
+$('#fsBtn').onclick=()=>{try{if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});else document.documentElement.requestFullscreen().catch(()=>{})}catch(e){}};
+$('#homeBtn').onclick=()=>{show('home');renderHome()};
+
+/* ---------- home ---------- */
+const LEVELS=[
+  {id:'num',name:'认数字',sub:'0 到 10',big:'123',c:'var(--recycle)'},
+  {id:'sym',name:'认符号',sub:'加号 减号 等号',big:'+−',c:'var(--harm)'},
+  {id:'l10',name:'10以内',sub:'加法 减法',big:'10',c:'var(--kitchen)'},
+  {id:'l20',name:'20以内',sub:'加法 减法',big:'20',c:'var(--orange)'},
+  {id:'l30',name:'30以内',sub:'加减法 和 括号',big:'30',c:'var(--other)'}
+];
+function starRow(n,cls){return `<div class="${cls||'stars'}">`+[0,1,2].map(i=>STAR.replace('<svg',`<svg class="${i<n?'on':''}"`)).join('')+'</div>'}
+function statsHTML(){return `<span class="stat">${STAR}${totalStars()} / 15</span><span class="stat">收了 ${S.piles} 堆垃圾</span>`}
+function renderHome(){
+  const box=$('#levels');box.innerHTML='';
+  LEVELS.forEach((L,i)=>{const b=h('button','lvl');b.style.setProperty('--c',L.c);b.innerHTML=`<span class="big">${L.big}</span><span class="nm">${L.name}</span><span class="sb">${L.sub}</span>${starRow(S.stars[L.id]||0)}`;b.onclick=()=>startLevel(i);box.appendChild(b)});
+  $('#homeStats').innerHTML=statsHTML();
+  $('#garIcon').innerHTML=miniTruckSVG(curTruck());$('#garIcon').firstChild.style.width='5rem';
+  const ht=$('#heroTruck');ht.innerHTML='';ht.appendChild(truckEl(3,5).el);
+}
+const MINI=[['var(--recycle)','可回收物','蓝色的，是可回收物垃圾桶，放纸和瓶子。'],['var(--harm)','有害垃圾','红色的，是有害垃圾桶，放电池。'],['var(--kitchen)','厨余垃圾','绿色的，是厨余垃圾桶，放剩饭和果皮。'],['var(--other)','其他垃圾','灰色的，是其他垃圾桶。']];
+MINI.forEach(([c,n,t])=>{const b=h('button','mbin',`<i></i><b></b><span>${n}</span>`);b.style.setProperty('--c',c);b.onclick=()=>{pulse(b);say(t)};$('#minibins').appendChild(b)});
+$('#heroTruck').onclick=()=>{sfx.honk();say(`嘀嘀！${curTruck().name}来啦！`)};
+const heroSeq=['green','yellow','red'];let heroI=0;
+$('#heroLight').onclick=()=>{heroI=(heroI+1)%3;const c=heroSeq[heroI];$('#heroLight .tl').dataset.on=c;$('#hero').classList.toggle('stop',c==='red');say(c==='red'?'红灯停！垃圾车停下来。':c==='green'?'绿灯行！垃圾车开走啦。':'黄灯亮了，等一等。')};
+$('#learnBtn').onclick=()=>openLearn('num');
+$('#garageBtn').onclick=()=>{openGarage();say('这是你的车库。星星越多，能开的垃圾车越多！')};
+
+/* ---------- garage ---------- */
+function openGarage(){
+  show('garage');capEl=$('#gCap');$('#garStats').innerHTML=statsHTML();
+  const box=$('#cars');box.innerHTML='';const tot=totalStars(),sel=curTruck();
+  TRUCKS.forEach(t=>{
+    const locked=tot<t.need,c=h('button','car'+(locked?' locked':'')+(t.id===sel.id?' sel':''));
+    c.appendChild(truckEl(2,5,null,t).el);c.appendChild(h('div','nm',t.name));
+    if(locked)c.appendChild(h('div','lock',`${STAR}${t.need}`));
+    if(t.id===sel.id)c.appendChild(h('span','tag','正在开'));
+    c.onclick=()=>{
+      if(locked){say(`${t.name}还锁着。再得${cn(t.need-tot)}颗星星，就能开它啦！`);pulse(c);return}
+      S.truck=t.id;LS.set('truck',t.id);sfx.honk();openGarage();say(`好！现在开${t.name}！`);
+    };
+    box.appendChild(c);
+  });
+}
+
+/* ---------- learn ---------- */
+const TABS=[{id:'num',label:'数字',sym:'123'},{id:'plus',label:'加号',sym:'+'},{id:'minus',label:'减号',sym:'−'},{id:'eq',label:'等号',sym:'='},{id:'zero',label:'零',sym:'0'},{id:'paren',label:'括号',sym:'( )'}];
+const RHYME=['零像一个圆圆的鸡蛋，也像空空的垃圾桶口，一个也没有。','一像铅笔，细长条。','二像小鸭，水上漂。','三像耳朵，听声音。','四像小旗，迎风飘。','五像秤钩，来买菜。','六像哨子，嘀嘀嘀。','七像镰刀，割青草。','八像麻花，拧一遭。','九像勺子，能盛饭。','十，是一个一和一个零，正好装满两排。'];
+function openLearn(tab){show('learn');const t=$('#tabs');t.innerHTML='';TABS.forEach(T=>{const b=h('button','tab',`<b>${T.sym}</b>${T.label}`);b.setAttribute('role','tab');b.setAttribute('aria-selected',T.id===tab);b.onclick=()=>openLearn(T.id);t.appendChild(b)});renderPanel(tab)}
+function skeleton(){const p=$('#lPanel');p.innerHTML='';const top=h('div','ltop'),stage=h('div','stage'),eqb=h('div','eqbox'),cap=h('div','caption');p.append(top,stage,eqb,cap);capEl=cap;return{top,stage,eqb,cap}}
+function symcard(sym,color,name,text){return h('div','symcard',`<div class="bigsym" style="background:${color}">${sym}</div><div class="txt"><div class="nm">${name}</div><p>${text}</p></div>`)}
+function chipRow(items,onPick){const row=h('div','chips');items.forEach((it,i)=>{const b=h('button','chip',it.label);b.onclick=()=>{row.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');onPick(it,i)};row.appendChild(b)});return row}
+function parseAB(s){const m=s.match(/(\d+)\s*([+−])\s*(\d+)/);return{a:+m[1],op:m[2],b:+m[3]}}
+function randAdd(max){const a=rnd(0,max),b=rnd(0,max-a);return{a,b}}
+function randSub(max){const a=rnd(1,max),b=rnd(0,a);return{a,b}}
+
+async function demoArith(P,a,op,b){
+  runId++;hush();
+  const e=eqEl([a,op,b,'=','?']);P.eqb.innerHTML='';P.eqb.appendChild(e);
+  const s=op==='+'?addScene(P.stage,a,b):subScene(P.stage,a,b);
+  const okk=await(op==='+'?animAdd(s):animSub(s));if(okk)fillQ(e,String(calc(a,op,b)));
+}
+function renderPanel(tab){
+  const P=skeleton();
+  if(tab==='num'){
+    const g=h('div','digits');let curN=3;
+    for(let n=0;n<=20;n++){const b=h('button','chip',String(n));b.onclick=()=>{g.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');curN=n;runId++;binScene(P.stage,n,n,true);
+      say(n<=10?`${cn(n)}。${RHYME[n]}`:`${cn(n)}。一排满满的十个，再加${cnM(n-10)}个。`)};g.appendChild(b)}
+    const tools=h('div','tools'),cnt=h('button','tool main','数一数');
+    cnt.onclick=()=>{runId++;const s=binScene(P.stage,curN,curN,true);animCount(s)};tools.append(cnt);
+    P.top.append(g,tools);binScene(P.stage,3,3,true);P.cap.textContent='点一个数字，听一听，看一看有几袋垃圾';
+  }
+  if(tab==='plus'){
+    P.top.append(symcard('+','var(--plus)','加号，读作“加”','一横一竖，像十字路口。垃圾桶倒进垃圾车，垃圾变多了，就是加。注意 0 + 5：空车里倒进 5 袋，就是 5 袋。'));
+    P.top.append(chipRow(['0 + 5','3 + 2','5 + 0','4 + 4','8 + 7','换一个'].map(l=>({label:l})),it=>{let a,b;if(it.label==='换一个'){({a,b}=randAdd(10))}else({a,b}=parseAB(it.label));demoArith(P,a,'+',b)}));
+    addScene(P.stage,0,5);P.eqb.appendChild(eqEl([0,'+',5,'=','?']));P.cap.textContent='点上面的算式，看垃圾车做加法';
+  }
+  if(tab==='minus'){
+    P.top.append(symcard('−','var(--minus)','减号，读作“减”','只有一横，像一根小棍。吸尘车把纸片吸进肚子里，地上的纸片变少了，就是减。全部吸走，地上干干净净，就是 0。'));
+    P.top.append(chipRow(['7 − 3','5 − 0','9 − 9','10 − 4','17 − 9','换一个'].map(l=>({label:l})),it=>{let a,b;if(it.label==='换一个'){({a,b}=randSub(10))}else({a,b}=parseAB(it.label));demoArith(P,a,'−',b)}));
+    subScene(P.stage,7,3);P.eqb.appendChild(eqEl([7,'−',3,'=','?']));P.cap.textContent='点上面的算式，看吸尘车做减法';
+  }
+  if(tab==='eq'){
+    P.top.append(symcard('=','var(--eqc)','等号，读作“等于”','两条横线，像两条斑马线。左边和右边一样多，中间就用等号。'));
+    const ex=[{label:'3 + 2 = 5',a:3,op:'+',b:2},{label:'6 − 1 = 5',a:6,op:'−',b:1},{label:'4 = 4',a:4,op:'',b:0}];
+    const build=x=>{
+      P.stage.innerHTML='';const n=calc(x.a,x.op||'+',x.b);sizeStage(P.stage,Math.max(x.a+x.b,n));
+      const L=truckEl(0,5),bagsL=[],tb=curTruck().bag;
+      const leftCount=x.op==='−'?x.a:x.a+x.b;
+      for(let i=0;i<leftCount;i++){const bg=bagEl(i<x.a?tb:BIN_BAG);if(x.op==='−'&&i>=x.a-x.b)bg.classList.add('gone');else bagsL.push(bg);L.load.appendChild(bg)}
+      const R=binEl(n,5,'var(--recycle)',TRUCK_BAG);
+      const lu=unit(L.el,x.op?`${x.a}${x.op}${x.b}`:x.a,'左边'),ru=unit(R.el,n,'右边');
+      const s=h('div','scene');s.append(lu.el,h('div','bigeq','='),ru.el);P.stage.append(s);
+      P.eqb.innerHTML='';P.eqb.appendChild(eqEl(x.op?[x.a,x.op,x.b,'=',n]:[x.a,'=',n]));
+      return{bagsL,bagsR:[...R.load.children],n};
+    };
+    P.top.append(chipRow(ex,async x=>{runId++;const id=runId,s=build(x);
+      await say('我们来比一比，左边一个，右边一个。');
+      for(let i=0;i<s.n;i++){if(id!==runId)return;pulse(s.bagsL[i]);pulse(s.bagsR[i]);sfx.plop();await say(cn(i+1))}
+      if(id===runId)await say(`左边${cnM(s.n)}袋，右边${cnM(s.n)}袋，两边一样多，中间用等号。`)}));
+    build(ex[0]);P.cap.textContent='点上面的算式，比一比两边是不是一样多';
+  }
+  if(tab==='zero'){
+    P.top.append(symcard('0','var(--other)','零，读作“零”','零就是一个也没有。空空的垃圾桶里有 0 袋。任何数加 0、减 0，都不变；全部吸走，地上干干净净，就剩 0。'));
+    const what=()=>{runId++;P.stage.innerHTML='';sizeStage(P.stage,0);const s=h('div','scene');const b=unit(binEl(0,5,'var(--other)').el,0,'空垃圾桶'),t=unit(truckEl(0,5).el,0,'空垃圾车');s.append(b.el,t.el);P.stage.append(s);P.eqb.innerHTML='';P.eqb.appendChild(eqEl([0]));pulse(b.el);pulse(t.el)};
+    P.top.append(chipRow([{label:'什么是 0'},{label:'0 + 5'},{label:'5 + 0'},{label:'5 − 0'},{label:'5 − 5'}],it=>{
+      if(it.label==='什么是 0'){what();say('零，就是一个也没有。垃圾桶空空的，垃圾车也空空的。零像一个圆圆的鸡蛋。');return}
+      const{a,op,b}=parseAB(it.label);demoArith(P,a,op,b)}));
+    what();P.cap.textContent='零，就是一个也没有';
+  }
+  if(tab==='paren'){
+    P.top.append(symcard('( )','var(--orange)','括号','左括号和右括号，像一个小车库。有括号的时候，先算车库里面的，再算外面的。'));
+    const ex=[{a:2,op1:'+',b:3,op2:'+',c:4,left:true},{a:3,op1:'+',b:2,op2:'−',c:10,left:false},{a:9,op1:'−',b:4,op2:'+',c:6,left:true}].map(finishParen);
+    const put=q=>{P.stage.innerHTML='';P.stage.classList.remove('small','tiny');const s=h('div','scene');s.append(unit(truckEl(3,5).el,'(  )','车库里的车先出发').el);P.stage.append(s);const e=eqEl(parenParts(q));P.eqb.innerHTML='';P.eqb.appendChild(e);return e};
+    P.top.append(chipRow(ex.map(q=>({label:parenLabel(q),q})),it=>{runId++;const e=put(it.q);animParen(e,it.q)}));
+    put(ex[0]);P.cap.textContent='点上面的算式，看看先算哪里';
+  }
+}
+function finishParen(q){q.m=calc(q.a,q.op1,q.b);q.ans=q.left?calc(q.m,q.op2,q.c):calc(q.c,q.op2,q.m);return q}
+function parenParts(q){const g={g:['(',q.a,q.op1,q.b,')']};return q.left?[g,q.op2,q.c,'=','?']:[q.c,q.op2,g,'=','?']}
+function parenLabel(q){const g=`(${q.a} ${q.op1} ${q.b})`;return q.left?`${g} ${q.op2} ${q.c}`:`${q.c} ${q.op2} ${g}`}
+
+/* ---------- question generation ---------- */
+function numOpts(ans,max){
+  const c=shuffle([ans-1,ans+1,ans-2,ans+2,ans+3,ans-3]).filter(v=>v>=0&&v<=max);
+  if(ans<=2)c.unshift(...shuffle([0,1,2].filter(v=>v!==ans)));
+  const set=[ans];for(const v of c){if(set.length>=3)break;if(!set.includes(v))set.push(v)}
+  while(set.length<3)set.push(set.length+ans+1);
+  return shuffle(set.map(String));
+}
+function arith(type,a,b,max){const ans=type==='add'?a+b:a-b;return{type,a,b,ans:String(ans),opts:numOpts(ans,max)}}
+function randArith(max,lo){for(;;){if(Math.random()<.5){const a=rnd(lo,max-1),b=rnd(1,max-a);if(a+b<=max)return arith('add',a,b,max)}else{const a=rnd(Math.max(lo,2),max),b=rnd(1,a-1);return arith('sub',a,b,max)}}}
+function genLevel(id){
+  const qs=[];
+  if(id==='num'){
+    const ns=shuffle([0,1,2,rnd(3,5),rnd(6,8),rnd(9,10),0,2]);
+    ns.forEach((n,i)=>qs.push({type:i%2?'find':'count',n,ans:String(n),opts:numOpts(n,10)}));
+  }
+  if(id==='sym'){
+    for(let i=0;i<6;i++){const add=i%2===0;const a=add?rnd(1,4):rnd(3,6),b=add?rnd(1,4):rnd(1,a-1);qs.push({type:'symfill',op:add?'+':'−',a,b,c:calc(a,add?'+':'−',b),ans:add?'+':'−',opts:['+','−']})}
+    shuffle(['+','−','=']).slice(0,2).forEach(sym=>qs.push({type:'symfind',sym,ans:sym,opts:shuffle(['+','−','='])}));
+    return shuffle(qs);
+  }
+  if(id==='l10'){
+    const zeros=shuffle([()=>arith('add',0,rnd(2,9),10),()=>arith('add',rnd(2,9),0,10),()=>{const a=rnd(2,9);return arith('sub',a,0,10)},()=>{const a=rnd(2,9);return arith('sub',a,a,10)}]).slice(0,3);
+    for(let i=0;i<8;i++)qs.push([1,4,6].includes(i)?zeros.shift()():randArith(10,1));
+  }
+  if(id==='l20'){
+    for(let i=0;i<8;i++){
+      if(i===5){qs.push(Math.random()<.5?arith('add',0,rnd(11,19),20):(a=>arith('sub',a,a,20))(rnd(11,19)));continue}
+      if(i%2===0){const a=rnd(5,12),b=rnd(Math.max(1,11-a),Math.min(9,20-a));qs.push(arith('add',a,b,20))}
+      else{const a=rnd(11,20),b=rnd(Math.max(1,a-9),Math.min(9,a));qs.push(arith('sub',a,b,20))}
+    }
+  }
+  if(id==='l30'){
+    for(let i=0;i<4;i++)qs.push(randArith(30,8));
+    for(let i=0;i<2;i++){for(;;){const op1=Math.random()<.5?'+':'−';let a=rnd(1,9),b=rnd(1,9);if(op1==='−'&&b>a)[a,b]=[b,a];const op2=Math.random()<.5?'+':'−',left=Math.random()<.5;const m=calc(a,op1,b);const c=(!left&&op2==='−')?rnd(m,Math.min(30,m+12)):rnd(1,12);const q=finishParen({a,op1,b,op2,c,left});if(q.ans>=0&&q.ans<=30){q.type='paren';q.opts=numOpts(q.ans,30);q.ans=String(q.ans);qs.push(q);break}}}
+    for(let i=0;i<2;i++){const add=Math.random()<.5,a=rnd(6,20),b=add?rnd(1,9):rnd(1,a-1);qs.push({type:'opfill',a,b,c:calc(a,add?'+':'−',b),ans:add?'+':'−',opts:['+','−']})}
+    return shuffle(qs);
+  }
+  return qs;
+}
+
+/* ---------- play ---------- */
+const SYMNAME={'+':'加号','−':'减号','=':'等号'};
+const SYMDESC={'+':'加号，一横一竖，像十字路口。','−':'减号，只有一横，像一根小棍。','=':'等号，两条横线，像两条斑马线。'};
+function promptText(q){
+  switch(q.type){
+    case'add':return `${cn(q.a)}加${cn(q.b)}，等于几？`;
+    case'sub':return `${cn(q.a)}减${cn(q.b)}，等于几？`;
+    case'count':return '数一数，垃圾桶里有几袋垃圾？';
+    case'find':return `找一找，哪个是${cn(q.n)}？`;
+    case'symfill':return q.op==='+'?'垃圾倒进去，变多了。中间是加号，还是减号？':'纸片被吸走，变少了。中间是加号，还是减号？';
+    case'symfind':return `找一找，哪个是${SYMNAME[q.sym]}？`;
+    case'paren':return '括号里面先算。最后等于几？';
+    case'opfill':return `${cn(q.a)}变成了${cn(q.c)}，中间是加号还是减号？`;
+  }
+}
+function answerText(q){
+  switch(q.type){
+    case'add':case'sub':return `${cn(q.a)}${q.type==='add'?'加':'减'}${cn(q.b)}，等于${cn(q.ans)}。`;
+    case'count':case'find':return `是${cn(q.n)}。`;
+    case'symfill':case'opfill':return `是${SYMNAME[q.ans]}。`;
+    case'symfind':return `这是${SYMNAME[q.sym]}。`;
+    case'paren':return `等于${cn(q.ans)}。`;
+  }
+}
+function light(c){$('#pLight').dataset.on=c}
+function moodOf(i){const n=game.qs.length,r=(n-i)/n;return r===0?3:r<=.25?2:r<=.6?1:0}
+function updateSmell(){$('#smell').innerHTML=faceSVG(moodOf(game.i))}
+function updateTrack(){$('#mtruck').style.left=`calc((100% - 6rem) * ${game.i/game.qs.length})`}
+function buildStreet(){
+  const t=$('#track'),n=game.qs.length;t.querySelectorAll('.pile').forEach(p=>p.remove());
+  for(let i=0;i<n;i++){const p=h('div','pile',PILE);p.style.left=`calc(3.1rem + (100% - 6rem) * ${(i+1)/n} - 1.6rem)`;t.appendChild(p)}
+  $('#mtruck').innerHTML=miniTruckSVG(curTruck());updateTrack();updateSmell();
+}
+$('#smell').onclick=()=>{const m=moodOf(game.i);say(['好臭啊！快把垃圾收走吧！','还有一点点臭，加油！','快干净啦！','香香的，真干净！'][m])};
+function startLevel(i){game={idx:i,lv:LEVELS[i],qs:genLevel(LEVELS[i].id),i:0,mistakes:0,streak:0,starsBefore:totalStars()};show('play');capEl=$('#pCap');buildStreet();nextQ(true)}
+function renderQ(q){
+  const stage=$('#pStage'),eqb=$('#pEq');stage.innerHTML='';eqb.innerHTML='';sc=null;eqNode=null;stage.classList.remove('small','tiny');
+  switch(q.type){
+    case'add':sc=addScene(stage,q.a,q.b);eqNode=eqEl([q.a,'+',q.b,'=','?']);break;
+    case'sub':sc=subScene(stage,q.a,q.b);eqNode=eqEl([q.a,'−',q.b,'=','?']);break;
+    case'count':sc=binScene(stage,q.n,'?');break;
+    case'find':case'symfind':{const b=h('button','listen',SPEAKER);b.setAttribute('aria-label','听一听');b.onclick=()=>say(promptText(q));stage.appendChild(b);break}
+    case'symfill':sc=q.op==='+'?addScene(stage,q.a,q.b):subScene(stage,q.a,q.b);eqNode=eqEl([q.a,'○',q.b,'=',q.c]);break;
+    case'paren':eqNode=eqEl(parenParts(q));{const s=h('div','scene');s.append(unit(truckEl(0,5).el,'(  )','先算括号里').el);stage.appendChild(s)}break;
+    case'opfill':eqNode=eqEl([q.a,'○',q.b,'=',q.c]);{const s=h('div','scene'),big=q.c>q.a;s.append(unit(binEl(0,5,'var(--recycle)').el,q.a,'原来').el,h('div','bigeq','→'),unit(truckEl(0,5).el,q.c,big?'变多了':'变少了').el);stage.appendChild(s)}break;
+  }
+  if(eqNode)eqb.appendChild(eqNode);
+  const box=$('#pOpts');box.innerHTML='';
+  const order=shuffle(BINC);
+  q.opts.forEach((v,i)=>{const b=h('button','opt',v);b.dataset.v=v;b.style.setProperty('--c',order[i%order.length]);b.setAttribute('aria-label','答案 '+v);b.onclick=()=>onAnswer(b,v);box.appendChild(b)});
+}
+async function nextQ(first){
+  runId++;busy=false;cur=game.qs[game.i];cur.animated=false;light('yellow');setMood('idle');renderQ(cur);updateTrack();
+  const id=runId;
+  if(first){await say('街上好臭啊！我们开着垃圾车，答对一题，就收走一堆垃圾！');if(id!==runId)return}
+  if(cur.type==='symfill'){await wait(400);if(id!==runId)return;const okk=await(cur.op==='+'?animAdd(sc,{narrate:false}):animSub(sc,{narrate:false}));if(okk)cur.animated=true;if(id!==runId)return}
+  say(promptText(cur));
+}
+function hintOpt(){const b=[...document.querySelectorAll('#pOpts .opt')].find(x=>x.dataset.v===cur.ans);if(b){b.classList.remove('hint');void b.offsetWidth;b.classList.add('hint')}}
+async function help(){
+  const q=cur;runId++;const id=runId,ok=()=>id===runId;light('yellow');hush();
+  switch(q.type){
+    case'add':sc=addScene($('#pStage'),q.a,q.b);if(await animAdd(sc)){q.animated=true;await say('你来选一选吧！')}break;
+    case'sub':sc=subScene($('#pStage'),q.a,q.b);if(await animSub(sc)){q.animated=true;await say('你来选一选吧！')}break;
+    case'count':sc=binScene($('#pStage'),q.n,'?');if(await animCount(sc))hintOpt();break;
+    case'find':hintOpt();await say(`${cn(q.n)}长这样。${q.n<=10?RHYME[q.n]:''}`);break;
+    case'symfind':hintOpt();await say(SYMDESC[q.sym]);break;
+    case'symfill':{sc=q.op==='+'?addScene($('#pStage'),q.a,q.b):subScene($('#pStage'),q.a,q.b);const r=await(q.op==='+'?animAdd(sc):animSub(sc));if(r&&ok()){hintOpt();await say(q.op==='+'?'变多了，用加号。':'变少了，用减号。')}break}
+    case'paren':{const e=eqEl(parenParts(q));$('#pEq').innerHTML='';$('#pEq').appendChild(e);eqNode=e;if(await animParen(e,q)){hintOpt();await say('你来选一选吧！')}break}
+    case'opfill':hintOpt();await say(q.c>q.a?`从${cn(q.a)}变成${cn(q.c)}，变多了，用加号。`:`从${cn(q.a)}变成${cn(q.c)}，变少了，用减号。`);break;
+  }
+}
+function showStreak(){const s=$('#streak');if(game.streak>=2){s.hidden=false;s.textContent=`连对 ×${game.streak}`;pulse(s)}else s.hidden=true}
+async function onAnswer(btn,v){
+  if(busy||btn.disabled)return;const q=cur;
+  if(v===q.ans){
+    busy=true;runId++;light('green');setMood('happy');sfx.ding();btn.classList.add('right');
+    document.querySelectorAll('#pOpts .opt').forEach(b=>b.disabled=true);
+    if((q.type==='add'||q.type==='sub')&&!q.animated){runId++;sc=q.type==='add'?addScene($('#pStage'),q.a,q.b):subScene($('#pStage'),q.a,q.b);await(q.type==='add'?animAdd(sc,{narrate:false}):animSub(sc,{narrate:false}))}
+    if(q.type==='count'&&sc)sc.badge.textContent=q.n;
+    if(eqNode&&eqNode.querySelector('.tok.q'))fillQ(eqNode,q.ans);
+    // street cleanup
+    const before=moodOf(game.i);game.i++;game.streak++;S.piles++;LS.set('piles',S.piles);
+    updateTrack();showStreak();
+    const pile=$('#track').querySelectorAll('.pile')[game.i-1];
+    setTimeout(()=>{if(pile){pile.classList.add('got');sfx.plop()}updateSmell();pulse($('#smell'))},650);
+    const after=moodOf(game.i);
+    let extra='';
+    if([3,5,8].includes(game.streak)){confetti();sfx.fanfare();extra+=`连对${cn(game.streak)}题！`}
+    if(after!==before)extra+=after===3?'街道干干净净，香香的！':'臭味变少啦！';
+    const praise=['答对了！','真棒！','太厉害了！','绿灯，通过！'][rnd(0,3)];
+    await say(praise+answerText(q)+extra);
+    await wait(400);
+    if(!$('#play').hidden){if(game.i>=game.qs.length)finish();else nextQ()}
+  }else{
+    game.mistakes++;game.streak=0;showStreak();light('red');sfx.buzz();btn.disabled=true;btn.classList.add('wrong');
+    setMood('sad');
+    runId++;await say('哎呀，好臭！苍蝇来啦！不对哦，再想想。');
+    if(!$('#play').hidden&&cur===q){await help();if(cur===q&&!busy)moodTimer=setTimeout(()=>{if(!busy)setMood('idle')},1500)}
+  }
+}
+$('#pSay').onclick=()=>{if(cur&&!busy){runId++;say(promptText(cur))}};
+$('#pHelp').onclick=()=>{if(cur&&!busy)help()};
+function finish(){
+  const st=game.mistakes<=1?3:game.mistakes<=3?2:1,L=game.lv,before=game.starsBefore;
+  S.stars[L.id]=Math.max(S.stars[L.id]||0,st);LS.set('stars',S.stars);
+  const after=totalStars();
+  show('done');capEl=$('#dCap');
+  $('#bigstars').innerHTML=[0,1,2].map(i=>STAR.replace('<svg',`<svg class="${i<st?'on':''}"`)).join('');
+  $('#nextBtn').hidden=game.idx>=LEVELS.length-1;
+  const box=$('#unlockBox');box.innerHTML='';
+  const fresh=TRUCKS.filter(t=>t.need>before&&t.need<=after);
+  const next=TRUCKS.find(t=>t.need>after);
+  let line=`${L.name}，通关啦！你得到了${cnM(st)}颗星星！`;
+  if(fresh.length){
+    const t=fresh[fresh.length-1];S.truck=t.id;LS.set('truck',t.id);
+    const u=h('div','unlock new');u.append(h('div','t','解锁新车！'),truckEl(3,5,null,t).el,h('div','t',t.name));box.appendChild(u);
+    confetti();sfx.fanfare();line+=`哇！你解锁了${t.name}！现在就开它！`;
+  }else if(next){
+    const u=h('div','unlock next');u.append(h('div','t','下一辆车'),truckEl(2,5,null,next).el,h('div','need',`还差 ${STAR}${next.need-after}`));box.appendChild(u);
+    sfx.honk();line+=`再得${cn(next.need-after)}颗星星，就能开${next.name}啦！`;
+  }else{sfx.fanfare();confetti();line+='所有垃圾车都解锁啦，你是垃圾车大王！'}
+  say(line);
+}
+$('#againBtn').onclick=()=>startLevel(game.idx);
+$('#nextBtn').onclick=()=>startLevel(Math.min(game.idx+1,LEVELS.length-1));
+$('#backBtn').onclick=()=>{show('home');renderHome()};
+
+$('#buddy').innerHTML=BUDDY;$('#doneBuddy').innerHTML=BUDDY;
+$('#buddy').onclick=()=>{const m=$('#buddy').dataset.mood;say(m==='happy'?'哈哈，太好了！太阳出来了，小花也开了！':m==='sad'?'好臭好臭！苍蝇别过来！快帮我算对它！':'我是环卫工乐乐叔叔！你答对了，我就开心；答错了，苍蝇就来找我啦！')};
+renderHome();
+})();
+</script>
+
+</html>
