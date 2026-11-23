@@ -445,6 +445,8 @@ function miniTruckSVG(t){return `<svg viewBox="0 0 80 50" aria-hidden="true"><re
 const SWEEPER='<svg viewBox="0 0 130 80" aria-hidden="true"><path d="M30 22Q8 20 9 42V64" fill="none" stroke="#343A40" stroke-width="7" stroke-linecap="round"/><rect x="1" y="62" width="16" height="10" rx="3" fill="#343A40"/><rect x="26" y="14" width="66" height="46" rx="8" fill="#F76707" stroke="#C2410C" stroke-width="3"/><path d="M92 26H110Q116 26 119 32L126 46V60H92Z" fill="#F76707" stroke="#C2410C" stroke-width="3"/><path d="M97 31H110L117 45H97Z" fill="#D0EBFF"/><rect x="26" y="58" width="100" height="6" fill="#C2410C"/><circle cx="44" cy="68" r="9" fill="#262B33" stroke="#555D6B" stroke-width="4"/><circle cx="108" cy="68" r="9" fill="#262B33" stroke="#555D6B" stroke-width="4"/><rect x="60" y="5" width="9" height="10" rx="2" fill="#FFD43B"/></svg>';
 const SPARKLE='<svg viewBox="0 0 60 40" aria-hidden="true"><path d="M16 6l2.5 7.5L26 16l-7.5 2.5L16 26l-2.5-7.5L6 16l7.5-2.5z" fill="#FCC419"/><path d="M42 2l2 5.5 5.5 2-5.5 2-2 5.5-2-5.5-5.5-2 5.5-2z" fill="#FCC419"/><path d="M44 22l1.6 4.4 4.4 1.6-4.4 1.6L44 34l-1.6-4.4-4.4-1.6 4.4-1.6z" fill="#74C0FC"/></svg>';
 const PILE='<svg viewBox="0 0 40 44" aria-hidden="true"><g class="stink" fill="none" stroke="#69DB7C" stroke-width="2.4" stroke-linecap="round"><path d="M10 15q-3-3 0-6t0-6"/><path d="M20 13q-3-3 0-6t0-6"/><path d="M30 15q-3-3 0-6t0-6"/></g><path d="M3 43q-3-12 7-16 9 2 8 16z" fill="#495057"/><path d="M14 43q-2-14 11-17 11 4 10 17z" fill="#868E96"/><path d="M20 28l5-2" stroke="#212529" stroke-width="2"/><path d="M6 30l4-2" stroke="#212529" stroke-width="2"/><circle class="fly" cx="31" cy="18" r="2" fill="#212529"/></svg>';
+const POOP_SHAPE='<ellipse cx="0" cy="-4.5" rx="11" ry="5" fill="#7A4A1E"/><ellipse cx="0" cy="-10.5" rx="8.2" ry="4.6" fill="#8B5A2B"/><ellipse cx="0" cy="-16" rx="5.2" ry="3.6" fill="#9C6630"/><path d="M0-19q4-3 1-7" fill="none" stroke="#9C6630" stroke-width="3.2" stroke-linecap="round"/><circle cx="-3.6" cy="-10.5" r="2.4" fill="#fff"/><circle cx="3.6" cy="-10.5" r="2.4" fill="#fff"/><circle cx="-3.1" cy="-10.1" r="1.2" fill="#1B2A41"/><circle cx="4.1" cy="-10.1" r="1.2" fill="#1B2A41"/><path d="M-3-5.6q3 2.8 6 0" fill="none" stroke="#1B2A41" stroke-width="1.3" stroke-linecap="round"/><ellipse cx="-4" cy="-18" rx="1.6" ry="1" fill="rgba(255,255,255,.4)"/>';
+const POOP_PILE=`<svg viewBox="0 0 40 44" aria-hidden="true"><g class="stink" fill="none" stroke="#69DB7C" stroke-width="2.4" stroke-linecap="round"><path d="M10 15q-3-3 0-6t0-6"/><path d="M20 11q-3-3 0-6t0-6"/><path d="M30 15q-3-3 0-6t0-6"/></g><g transform="translate(20 43) scale(1.45)">${POOP_SHAPE}</g><circle class="fly" cx="31" cy="18" r="2" fill="#212529"/></svg>`;
 const STAR='<svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 20.9l1.6-7L2 9.2l7.1-.6z"/></svg>';
 const SPEAKER='<svg viewBox="0 0 24 24" fill="none" stroke="#1B2A41" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="#1B2A41"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg>';
 const TRUCK_BAG='#F76707', BIN_BAG='#FCC419';
@@ -458,7 +460,7 @@ const BUDDY=`<svg viewBox="0 0 120 170" aria-hidden="true">
 <g class="sun"><g class="rays" stroke="#FAB005" stroke-width="3" stroke-linecap="round">${[0,45,90,135,180,225,270,315].map(a=>`<path d="M60 1v4" transform="rotate(${a} 60 16)"/>`).join('')}</g><circle cx="60" cy="16" r="8" fill="#FFD43B"/></g>
 <rect x="0" y="158" width="120" height="12" fill="#CED4DA"/>
 <g class="flowers">${flowerSVG(12,'#F06595','f1')}${flowerSVG(26,'#FF922B','f2')}${flowerSVG(96,'#845EF7','f3')}${flowerSVG(110,'#FA5252','f4')}</g>
-<g class="trash"><path d="M6 158q1-11 8-9q5 2 3 9z" fill="#495057"/><path d="M20 158q7-7 14 0q-7-3-14 0z" fill="#FAB005"/><path d="M95 158l3-10h8l2 10z" fill="#868E96"/><circle cx="112" cy="155" r="3.2" fill="#F8F9FA" stroke="#ADB5BD"/></g>
+<g class="trash"><path d="M6 158q1-11 8-9q5 2 3 9z" fill="#495057"/><path d="M20 158q7-7 14 0q-7-3-14 0z" fill="#FAB005"/><g><g transform="translate(94 158) scale(1.15)">${POOP_SHAPE}</g></g><g fill="none" stroke="#69DB7C" stroke-width="2" stroke-linecap="round"><path d="M88 134q-2-2 0-4t0-4"/><path d="M97 131q-2-2 0-4t0-4"/><path d="M104 135q-2-2 0-4t0-4"/></g><circle cx="112" cy="155" r="3.2" fill="#F8F9FA" stroke="#ADB5BD"/></g>
 <g class="guy">
   <rect x="45" y="128" width="12" height="26" rx="3" fill="#364FC7"/><rect x="63" y="128" width="12" height="26" rx="3" fill="#364FC7"/>
   <ellipse cx="50" cy="156" rx="8" ry="4" fill="#343A40"/><ellipse cx="70" cy="156" rx="8" ry="4" fill="#343A40"/>
@@ -815,7 +817,7 @@ function updateSmell(){$('#smell').innerHTML=faceSVG(moodOf(game.i))}
 function updateTrack(){$('#mtruck').style.left=`calc((100% - 6rem) * ${game.i/game.qs.length})`}
 function buildStreet(){
   const t=$('#track'),n=game.qs.length;t.querySelectorAll('.pile').forEach(p=>p.remove());
-  for(let i=0;i<n;i++){const p=h('div','pile',PILE);p.style.left=`calc(3.1rem + (100% - 6rem) * ${(i+1)/n} - 1.6rem)`;t.appendChild(p)}
+  for(let i=0;i<n;i++){const p=h('div','pile',i%3===1?POOP_PILE:PILE);p.style.left=`calc(3.1rem + (100% - 6rem) * ${(i+1)/n} - 1.6rem)`;t.appendChild(p)}
   $('#mtruck').innerHTML=miniTruckSVG(curTruck());updateTrack();updateSmell();
 }
 $('#smell').onclick=()=>{const m=moodOf(game.i);say(['好臭啊！快把垃圾收走吧！','还有一点点臭，加油！','快干净啦！','香香的，真干净！'][m])};
@@ -882,7 +884,7 @@ async function onAnswer(btn,v){
   }else{
     game.mistakes++;game.streak=0;showStreak();light('red');sfx.buzz();btn.disabled=true;btn.classList.add('wrong');
     setMood('sad');
-    runId++;await say('哎呀，好臭！苍蝇来啦！不对哦，再想想。');
+    runId++;await say(['哎呀，好臭！是谁的臭臭？','哎呀，差点踩到臭臭！','苍蝇围着臭臭飞来啦！'][rnd(0,2)]+'不对哦，再想想。');
     if(!$('#play').hidden&&cur===q){await help();if(cur===q&&!busy)moodTimer=setTimeout(()=>{if(!busy)setMood('idle')},1500)}
   }
 }
@@ -914,7 +916,7 @@ $('#nextBtn').onclick=()=>startLevel(Math.min(game.idx+1,LEVELS.length-1));
 $('#backBtn').onclick=()=>{show('home');renderHome()};
 
 $('#buddy').innerHTML=BUDDY;$('#doneBuddy').innerHTML=BUDDY;
-$('#buddy').onclick=()=>{const m=$('#buddy').dataset.mood;say(m==='happy'?'哈哈，太好了！太阳出来了，小花也开了！':m==='sad'?'好臭好臭！苍蝇别过来！快帮我算对它！':'我是环卫工乐乐叔叔！你答对了，我就开心；答错了，苍蝇就来找我啦！')};
+$('#buddy').onclick=()=>{const m=$('#buddy').dataset.mood;say(m==='happy'?'哈哈，太好了！太阳出来了，小花也开了！':m==='sad'?'好臭好臭！地上有一坨臭臭！快帮我算对，把它收走！':'我是环卫工乐乐叔叔！你答对了，我就开心；答错了，苍蝇就来找我啦！')};
 renderHome();
 })();
 </script>
