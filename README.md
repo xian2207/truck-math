@@ -67,8 +67,16 @@ tools/
   gen_clips.py      用 edge-tts 为每个片段生成 mp3 → audio/，并输出 clips.json（文字 → 文件名）
   embed_clips.py    把 clips.json 写回 index.html 里的 /*CLIPS*/…/*CLIPS_END*/
   clips.json        当前的片段清单（和 index.html 里嵌入的一致）
+  check_voice_coverage.js  自检：所有可能说出的句子（约 7000 句）都能用录音拼出来。node tools/check_voice_coverage.js
+  playback_test.sh  无头 Chrome 冒烟测试：切句 → 下载 → 解码 → 排程播放，输出 OK。需本机装有 Chrome
+  gen_samples.py    生成试听样本（4 种音色各说几句），用于挑选音色
+dev/
+  voice-samples/    当初挑音色用的试听样本：晓伊、云夏、晓北（辽宁话）、云希。最终选用云夏 + 云希
+  history/patch_world.py  一次性脚本：v5 改版（全屏街景）时用来拼接代码的工具，仅作留档，不需再运行
 README.md           本文件
 ```
+
+更早的版本看 git 历史：`git log --oneline`。每次改版都是一个 commit。
 
 ---
 
